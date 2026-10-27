@@ -108,6 +108,23 @@ table{border-collapse:collapse;width:100%}
 @media (max-width:560px){.ledger td:last-child,.ledger th:last-child{display:none}.ledger td,.ledger th{padding:7px 5px;font-size:.84rem}.ledger td:first-child,.ledger th:first-child{display:none}.ledger th{white-space:normal}.ledger .yy{display:none}.ledger tbody tr{cursor:pointer}.mobonly{display:inline}}
 .mobonly{display:none}
 .splitline{display:flex;flex-wrap:wrap;gap:10px 24px;align-items:center}
+#printArea{display:none}
+@media print{
+  :root:root:root{--bg:#fff;--surface:#fff;--paper:#fff;--ink:#000;--muted:#333;--line:#888;--soft:#eee;--accent:#0d6b67;--accent-soft:#e3efee;--danger:#000;color-scheme:light}
+  @page{size:A4;margin:12mm}
+  body.printing>*:not(#printArea){display:none!important}
+  body.printing #printArea{display:block}
+  body{background:#fff}
+  #printArea .paper{border:0;box-shadow:none;border-radius:0;padding:0;max-width:none;gap:12px}
+  #printArea .scroll{overflow:visible}
+  #printArea tr{break-inside:avoid}
+  #printArea .sheet{font-size:10pt}
+  #printArea .sheet th,#printArea .sheet td{padding:2px 6px}
+  #printArea .evehead{break-before:page}
+  #printArea .ph{gap:0}
+  .pbreak{break-before:page;height:0}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
 .empty{padding:18px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px}
 
 .exp{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
@@ -128,7 +145,7 @@ table{border-collapse:collapse;width:100%}
 .sheet tr.grand td{font-weight:700;font-size:1rem;background:var(--accent-soft)}
 .sum td{padding:7px 10px;border-bottom:1px solid var(--soft)}
 .sum td:last-child{text-align:right;font-family:var(--f-num);font-variant-numeric:tabular-nums;white-space:nowrap}
-.sum tr.sec td{font-weight:700;letter-spacing:.08em;font-size:.8rem;background:var(--soft);border-bottom:0}
+.sum tr.sec td,.sum tr.sec td:last-child{text-align:left;font-family:var(--f-body);font-weight:700;letter-spacing:.08em;font-size:.8rem;background:var(--soft);border-bottom:0}
 .sum tr.minus td:first-child{color:var(--muted)}
 .sum tr.minus td:last-child{color:var(--danger)}
 .sum tr.strong td{font-weight:700}
@@ -196,6 +213,7 @@ html,body{min-height:100%}
   <main id="view"></main>
 </div>
 <div id="toast" class="toast" hidden></div>
+<div id="printArea"></div>
 
 <script>
 (function(){
@@ -413,9 +431,21 @@ function viewRecords(){
   <section class="panel"><div class="panel-head"><span class="chip evening">Evening time</span><span class="num">${rs(c.eInc)}</span></div>${shiftTable(c.e,"Evening","evening",c.eInc)}</section>
   ${expensesHTML(cur,c)}`;
 }
+function doPrint(both){
+  const tmp=document.createElement("div");
+  tmp.innerHTML=both?viewStatement()+viewSummary():(tab==="summary"?viewSummary():viewStatement());
+  const area=$("#printArea");
+  area.innerHTML=[...tmp.querySelectorAll(".paper")].map((p,i)=>(i?'<div class="pbreak"></div>':"")+p.outerHTML).join("");
+  document.body.classList.add("printing");
+  const done=()=>{document.body.classList.remove("printing");area.innerHTML="";window.removeEventListener("afterprint",done)};
+  window.addEventListener("afterprint",done);
+  setTimeout(()=>{try{window.print()}catch(e){done();toast("Printing is not available on this device.")}},50);
+}
 function exportBar(){
   return `<div class="btnrow" style="justify-content:flex-end">
     <button class="btn plain" id="copySum">Copy summary text</button>
+    <button class="btn plain" id="prBoth">Print statement + summary</button>
+    <button class="btn plain" id="prOne">Print this page</button>
     ${downloads?'<button class="btn" id="dlX">Download Excel</button>':""}</div>`;
 }
 function stmtSheet(rows,total){
@@ -432,7 +462,7 @@ function viewStatement(){
   const c=compute(cur);
   return `${exportBar()}<article class="paper">${paperHead(cur,"")}
     <h3>Morning time</h3>${stmtSheet(c.m,c.mInc)}
-    <h3>Evening time</h3>${stmtSheet(c.e,c.eInc)}
+    <h3 class="evehead">Evening time</h3>${stmtSheet(c.e,c.eInc)}
     <table class="sheet"><tr class="grand"><td>TOTAL</td><td class="r num">${fmt(c.total)}</td></tr></table>
   </article>`;
 }
@@ -556,6 +586,8 @@ function bind(){
   document.querySelectorAll("[data-open]").forEach(a=>a.onclick=()=>{cur=a.dataset.open});
   const cs=$("#copySum"); if(cs) cs.onclick=copySummary;
   const dx=$("#dlX"); if(dx) dx.onclick=downloadExcel;
+  const p1=$("#prOne"); if(p1) p1.onclick=()=>doPrint(false);
+  const p2=$("#prBoth"); if(p2) p2.onclick=()=>doPrint(true);
   // settings
   const ss=$("#saveSet");
   if(ss){
