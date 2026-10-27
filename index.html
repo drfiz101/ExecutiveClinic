@@ -1,0 +1,685 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0d6b67">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Executive Clinic Ledger">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<title>Executive Clinic Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* Layout: one working column — month bar, tabs, then the active view; statement/summary render as paper sheets */
+:root{
+  --bg:#f3f6f6; --surface:#ffffff; --paper:#ffffff; --ink:#14282b; --muted:#5d7275; --line:#d9e2e2; --soft:#e9efef;
+  --accent:#0d6b67; --accent-ink:#ffffff; --accent-soft:#dcefed;
+  --morning:#a35d00; --morning-soft:#fdf0db; --evening:#3f4aa8; --evening-soft:#e6e8fa;
+  --danger:#b3261e; --danger-soft:#fbe5e3; --good:#1d7a43;
+  --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1819; --surface:#162224; --paper:#1a2729; --ink:#e3ecec; --muted:#93a8aa; --line:#2b3b3d; --soft:#203032;
+  --accent:#4fbdb5; --accent-ink:#06201e; --accent-soft:#183a38;
+  --morning:#f0b45a; --morning-soft:#3a2b14; --evening:#9fa8f5; --evening-soft:#242a52;
+  --danger:#f2938c; --danger-soft:#3d1d1b; --good:#6fd39a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1819; --surface:#162224; --paper:#1a2729; --ink:#e3ecec; --muted:#93a8aa; --line:#2b3b3d; --soft:#203032;
+  --accent:#4fbdb5; --accent-ink:#06201e; --accent-soft:#183a38;
+  --morning:#f0b45a; --morning-soft:#3a2b14; --evening:#9fa8f5; --evening-soft:#242a52;
+  --danger:#f2938c; --danger-soft:#3d1d1b; --good:#6fd39a; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45}
+.wrap{max-width:1040px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 60px;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{margin:0;text-wrap:balance}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* top */
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;flex-direction:column;gap:2px;min-width:0}
+.brand h1{font-size:1.25rem;font-weight:700;letter-spacing:.02em}
+.brand span{color:var(--muted);font-size:.85rem}
+.monthbar{display:flex;align-items:center;gap:6px}
+.monthbar select{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 10px;font-weight:600}
+.iconbtn{border:1px solid var(--line);background:var(--surface);border-radius:8px;width:38px;height:38px;display:grid;place-items:center;font-size:1rem}
+.iconbtn:hover{border-color:var(--accent)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs a{padding:10px 14px;text-decoration:none;color:var(--muted);font-weight:600;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tabs a[aria-current="page"]{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* tiles */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.tile .lbl{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.tile .val{font-family:var(--f-num);font-size:1.2rem;font-weight:600}
+.tile.hl{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.tile.hl .lbl{color:inherit;opacity:.85}
+
+/* panels */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel h2{font-size:1rem;font-weight:700}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.form{display:grid;grid-template-columns:150px 170px 1fr 1fr 130px auto;gap:10px;align-items:end}
+@media (max-width:860px){.form{grid-template-columns:1fr 1fr}.form .wide{grid-column:1/-1}}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:.74rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.field input,.field select,.field textarea{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:9px 10px;width:100%;min-width:0}
+.field input:focus,.field textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--bg)}
+.seg button{flex:1;border:0;background:transparent;padding:9px 6px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"][data-v="morning"]{background:var(--morning-soft);color:var(--morning)}
+.seg button[aria-pressed="true"][data-v="evening"]{background:var(--evening-soft);color:var(--evening)}
+.btn{border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);border-radius:8px;padding:9px 16px;font-weight:700;white-space:nowrap}
+.btn.ghost{background:transparent;color:var(--accent)}
+.btn.plain{border-color:var(--line);background:var(--surface);color:var(--ink)}
+.btn:disabled{opacity:.5;cursor:default}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.hint{color:var(--muted);font-size:.85rem}
+.err{color:var(--danger);font-size:.85rem}
+
+/* tables */
+.scroll{overflow-x:auto;min-width:0}
+table{border-collapse:collapse;width:100%}
+.ledger th{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:8px;border-bottom:1px solid var(--line);font-weight:600;white-space:nowrap}
+.ledger td{padding:7px 8px;border-bottom:1px solid var(--soft);vertical-align:middle}
+.ledger td.r,.ledger th.r{text-align:right}
+.ledger tr.editing td{background:var(--accent-soft)}
+.ledger tfoot td{font-weight:700;border-bottom:0;border-top:1px solid var(--line)}
+.act{display:flex;gap:4px;justify-content:flex-end}
+.act button{border:0;background:transparent;color:var(--muted);padding:4px 8px;border-radius:6px;font-size:.82rem;font-weight:600}
+.act button:hover{background:var(--soft);color:var(--ink)}
+.act button.del:hover{background:var(--danger-soft);color:var(--danger)}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:999px}
+.chip.morning{background:var(--morning-soft);color:var(--morning)}
+.chip.evening{background:var(--evening-soft);color:var(--evening)}
+@media (max-width:560px){.ledger td:last-child,.ledger th:last-child{display:none}.ledger td,.ledger th{padding:7px 5px;font-size:.84rem}.ledger td:first-child,.ledger th:first-child{display:none}.ledger th{white-space:normal}.ledger .yy{display:none}.ledger tbody tr{cursor:pointer}.mobonly{display:inline}}
+.mobonly{display:none}
+.empty{padding:18px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px}
+
+.exp{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.exp .calc{font-family:var(--f-num);font-size:.8rem;color:var(--muted);min-height:1.2em}
+
+/* paper */
+.paper{background:var(--paper);border:1px solid var(--line);border-radius:4px;box-shadow:0 1px 0 var(--line),0 12px 30px -20px rgba(0,0,0,.35);padding:clamp(18px,4vw,44px);max-width:780px;margin:0 auto;width:100%;display:flex;flex-direction:column;gap:18px}
+.paper .ph{text-align:center;display:flex;flex-direction:column;gap:2px}
+.paper .ph h2{font-size:1.35rem;letter-spacing:.08em}
+.paper .ph .sub{font-weight:600;letter-spacing:.04em}
+.paper .ph .mo{font-family:var(--f-num);color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.paper h3{font-size:.85rem;letter-spacing:.1em;text-transform:uppercase}
+.sheet{font-size:.88rem}
+.sheet th,.sheet td{border:1px solid var(--line);padding:5px 8px}
+.sheet th{background:var(--soft);font-size:.72rem;letter-spacing:.06em;text-align:left}
+.sheet td.r,.sheet th.r{text-align:right}
+.sheet tr.sub td{font-weight:700;background:var(--soft)}
+.sheet tr.grand td{font-weight:700;font-size:1rem;background:var(--accent-soft)}
+.sum td{padding:7px 10px;border-bottom:1px solid var(--soft)}
+.sum td:last-child{text-align:right;font-family:var(--f-num);font-variant-numeric:tabular-nums;white-space:nowrap}
+.sum tr.sec td{font-weight:700;letter-spacing:.08em;font-size:.8rem;background:var(--soft);border-bottom:0}
+.sum tr.minus td:first-child{color:var(--muted)}
+.sum tr.minus td:last-child{color:var(--danger)}
+.sum tr.strong td{font-weight:700}
+.sum tr.net td{font-weight:700;font-size:1.05rem;background:var(--accent-soft);border-bottom:0}
+.cc{font-size:.85rem;display:flex;flex-direction:column;gap:2px}
+.cc ul{margin:4px 0 0;padding-left:20px}
+
+.yr td,.yr th{white-space:nowrap}
+.bar{height:6px;border-radius:3px;background:var(--accent);opacity:.7}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:10px;display:flex;gap:12px;align-items:center;z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:calc(100% - 32px)}
+.toast button{border:0;background:transparent;color:var(--accent-soft);font-weight:700}
+.banner{background:var(--morning-soft);color:var(--ink);border-radius:10px;padding:12px 14px;font-size:.9rem}
+.shares{display:flex;flex-direction:column;gap:8px}
+.sharerow{display:grid;grid-template-columns:1fr 110px auto;gap:8px;align-items:center}
+@media (prefers-reduced-motion:no-preference){.tile,.panel{transition:border-color .15s}}
+
+.topright{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sync{font-size:.72rem;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap}
+.sync.ok{background:var(--accent-soft);color:var(--accent)}
+.sync.wait{background:var(--morning-soft);color:var(--morning)}
+.acct{display:flex;justify-content:flex-end;gap:10px;align-items:center;color:var(--muted);font-size:.82rem;margin-top:-8px}
+.linkbtn{border:0;background:none;color:var(--accent);font-weight:600;padding:4px 0}
+.loginwrap{min-height:100%;display:grid;place-items:center;padding-block:40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.logincard{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:12px}
+.logincard h1{font-size:1.3rem}
+.lmark{width:48px;height:48px;border-radius:12px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-size:1.4rem;font-weight:700}
+html,body{min-height:100%}
+</style>
+
+<style>[hidden]{display:none!important}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}</style>
+</head>
+<body>
+<div id="login" class="loginwrap" hidden>
+  <form id="loginForm" class="logincard" data-mode="in" autocomplete="on">
+    <div class="lmark" aria-hidden="true">₨</div>
+    <h1>Executive Clinic Ledger</h1>
+    <p class="hint" id="lTitle">Sign in</p>
+    <div class="field"><label for="lEmail">Email</label><input id="lEmail" type="email" autocomplete="username" required></div>
+    <div class="field"><label for="lPass">Password</label><input id="lPass" type="password" autocomplete="current-password" minlength="6" required></div>
+    <button class="btn" id="lGo" type="submit">Sign in</button>
+    <div id="loginMsg" class="err" role="status"></div>
+    <div class="btnrow" style="justify-content:space-between"><button type="button" class="linkbtn" id="lSwitch">New here? Create an account</button><button type="button" class="linkbtn" id="lForgot">Forgot password</button></div>
+    <p class="hint" style="margin:0">Use the same email on your phone and computer and your records stay in sync.</p>
+  </form>
+</div>
+<div class="wrap" id="app" hidden>
+  <header class="top">
+    <div class="brand"><h1 id="brandTitle">EXECUTIVE CLINIC</h1><span id="brandSub">Dr. Muhammad Faizan Malik · patient records &amp; monthly statement</span></div>
+    <div class="topright"><span id="sync" class="sync" hidden></span><div class="monthbar">
+      <button class="iconbtn" id="prevM" aria-label="Previous month">‹</button>
+      <select id="monthSel" aria-label="Month"></select>
+      <button class="iconbtn" id="nextM" aria-label="Next month">›</button>
+    </div></div>
+  </header>
+  <nav class="tabs" aria-label="Views">
+    <a href="#records" data-tab="records">Records</a>
+    <a href="#statement" data-tab="statement">Statement</a>
+    <a href="#summary" data-tab="summary">Summary</a>
+    <a href="#year" data-tab="year">Year</a>
+    <a href="#shares" data-tab="shares">Settings</a>
+  </nav>
+  <div id="banner" class="banner" hidden></div>
+  <div class="acct"><span id="who"></span><button class="linkbtn" id="signOut">Sign out</button></div>
+  <main id="view"></main>
+</div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+(function(){
+"use strict";
+// ---------- Firebase (same project as Dental Solutions) ----------
+const clone=o=>JSON.parse(JSON.stringify(o));
+let fsdb=null, uidNow=null, unsubs=[], pending=false;
+function makeDB(fs,uid){
+  const root=fs.collection("ledgers").doc(uid);
+  return {
+    doc(path){const [c,id]=path.split("/");const ref=(c==="months"?root.collection("months"):root.collection("config")).doc(id);
+      return {
+        set:d=>c==="months"?ref.set(d,{merge:true}):ref.set(d),
+        update:d=>ref.set(d,{merge:true}),
+        onSnapshot:(n,e)=>ref.onSnapshot(s=>n({exists:s.exists,data:()=>s.data()}),e)
+      }},
+    collection(){return {onSnapshot:(n,e)=>root.collection("months").onSnapshot({includeMetadataChanges:true},s=>{pending=s.metadata.hasPendingWrites;syncChip();n(s)},e)}},
+    replaceMonths:async(obj)=>{const ks=Object.keys(obj);for(let i=0;i<ks.length;i+=400){const b=fs.batch();ks.slice(i,i+400).forEach(k=>b.set(root.collection("months").doc(k),obj[k]));await b.commit()}}
+  };
+}
+function syncChip(){
+  const el=document.getElementById("sync"); if(!el) return;
+  const off=!navigator.onLine;
+  el.hidden=!uidNow;
+  el.className="sync "+(pending||off?"wait":"ok");
+  el.textContent=pending?(off?"Saved on phone · uploads when online":"Uploading…"):(off?"Offline · showing saved copy":"All saved online");
+}
+window.addEventListener("online",syncChip);window.addEventListener("offline",syncChip);
+function saveFile(filename,data,type){
+  const blob=new Blob([data],{type});
+  try{const file=new File([blob],filename,{type});
+    if(navigator.canShare&&/Android|iPhone|iPad/i.test(navigator.userAgent)&&navigator.canShare({files:[file]})){return navigator.share({files:[file],title:filename}).catch(()=>{})}}catch(e){}
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);
+}
+const localDownloads={async save({filename,data}){await saveFile(filename,data,"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");return{status:"saved"}}};
+function backupHTML(){
+  const n=Object.values(months).reduce((a,m)=>a+Object.values(m.records||{}).filter(r=>r&&!r.deleted).length,0);
+  return `<section class="panel"><div class="panel-head"><h2>Import and backup</h2><span class="hint">${n} records in your account</span></div>
+  <p class="hint" style="margin:0">Records save to your account online and sync to every phone or computer where you sign in. To bring in old records, choose a records file (.json). Months in the file replace the same months here.</p>
+  <div class="btnrow"><label class="btn" for="bkFile" style="cursor:pointer">Import records file</label><input type="file" id="bkFile" accept=".json,application/json" hidden><button class="btn plain" id="bkSave">Save backup file</button></div>
+  <div id="bkMsg" class="hint"></div></section>`;
+}
+function bindBackup(){
+  const s=document.getElementById("bkSave"); if(!s) return;
+  s.onclick=()=>{const d=new Date();saveFile(`Clinic backup ${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}.json`,JSON.stringify({months,config:{settings}}),"application/json");};
+  document.getElementById("bkFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const msg=document.getElementById("bkMsg");const rd=new FileReader();
+    rd.onload=async()=>{let o;try{o=JSON.parse(rd.result);o=o.months||o;if(!o||typeof o!=="object"||!Object.keys(o).every(k=>/^\d{4}-\d{2}$/.test(k)&&o[k]&&typeof o[k].records==="object"))throw 0}catch(x){msg.textContent="That file is not a clinic records file.";msg.className="err";return}
+      msg.className="hint";msg.textContent="Importing "+Object.keys(o).length+" months…";
+      try{await db.replaceMonths(o);msg.textContent="";toast("Imported "+Object.keys(o).length+" months")}catch(x){msg.className="err";msg.textContent="Import failed. Check your internet and try again."}
+      e.target.value=""};rd.readAsText(f)};
+}
+
+// ---------- defaults (match the 2026 summary sheets) ----------
+const DEF = {
+  clinic:"EXECUTIVE CLINIC", doctorFull:"DR. MUHAMMAD FAIZAN MALIK", doctor:"DR FAIZAN",
+  mHospital:50, eDoctor:50,
+  eShares:[{name:"HOSPITAL",pct:40},{name:"ALMAS",pct:5},{name:"SHAMSHARI",pct:5}],
+  tax:15,
+  softCopy:["Mr. Ghulam Noorani, Director Finance, Gandhara University.","Dr. Zainab Noorani, Administrator SBDC.","Mujahid, Accounts Officer, Gandhara University"]
+};
+const MN=["JAN","FEB","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPT","OCT","NOV","DEC"];
+const MFULL=["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+let db=null, downloads=null, ready=false, canWrite=true;
+let months={};         // key -> doc data
+let settings=Object.assign({},DEF);
+const now=new Date();
+const todayKey=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
+const todayISO=todayKey+"-"+String(now.getDate()).padStart(2,"0");
+let cur=todayKey;
+let tab="records";
+let editing=null;      // {key,id}
+let shift = now.getHours()<14 ? "morning" : "evening";
+
+// ---------- helpers ----------
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt=n=>{const v=Math.round((+n||0)*100)/100;return v.toLocaleString("en-PK",{minimumFractionDigits:Number.isInteger(v)?0:2,maximumFractionDigits:2})};
+const rs=n=>"Rs "+fmt(n);
+function calc(x){ // simple arithmetic: 850*4, 850+850, 16750-1700
+  if(x==null) return 0; x=String(x).replace(/,/g,"").replace(/\s/g,"").replace(/^=/,"");
+  if(x==="") return 0;
+  if(!/^[-+*/.\dx×]+$/i.test(x)) return NaN;
+  x=x.replace(/[x×]/gi,"*");
+  const terms=x.match(/[+-]?[^+-]+/g); if(!terms) return NaN;
+  let total=0;
+  for(const t of terms){
+    let sign=1,s=t; if(s[0]==="+"||s[0]==="-"){sign=s[0]==="-"?-1:1;s=s.slice(1)}
+    const parts=s.split(/([*/])/); let v=parseFloat(parts[0]);
+    for(let i=1;i<parts.length;i+=2){const n=parseFloat(parts[i+1]);v=parts[i]==="*"?v*n:v/n}
+    if(!isFinite(v)) return NaN; total+=sign*v;
+  }
+  return total;
+}
+function monthLabel(k){const [y,m]=k.split("-");return MFULL[+m-1]+" "+y}
+function shiftKey(k,d){let [y,m]=k.split("-").map(Number);m+=d;while(m<1){m+=12;y--}while(m>12){m-=12;y++}return y+"-"+String(m).padStart(2,"0")}
+function ddmmyy(iso){const [y,m,d]=iso.split("-");return +d+"/"+(+m)+"/"+y.slice(2)}
+function recs(k){
+  const r=(months[k]&&months[k].records)||{};
+  return Object.entries(r).filter(([,v])=>v&&!v.deleted).map(([id,v])=>Object.assign({id},v))
+    .sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.at||0)-(b.at||0));
+}
+function compute(k){
+  const all=recs(k), m=all.filter(r=>r.shift!=="evening"), e=all.filter(r=>r.shift==="evening");
+  const ex=(months[k]&&months[k].exp)||{}, S=settings;
+  const sum=a=>a.reduce((s,r)=>s+(+r.charges||0),0);
+  const o={m,e,mInc:sum(m),eInc:sum(e)};
+  ["mMat","mLab","eMat","eLab"].forEach(f=>{const v=calc(ex[f]);o[f]=isFinite(v)?v:0});
+  o.mRem=o.mInc-o.mMat-o.mLab;
+  o.mHosp=o.mRem*S.mHospital/100; o.mDoc=o.mRem*(100-S.mHospital)/100;
+  o.eRem=o.eInc-o.eMat-o.eLab;
+  o.eDoc=o.eRem*S.eDoctor/100;
+  o.eShares=S.eShares.map(s=>({name:s.name,pct:+s.pct,amt:o.eRem*(+s.pct)/100}));
+  o.docTotal=o.mDoc+o.eDoc; o.tax=o.docTotal*S.tax/100; o.net=o.docTotal-o.tax;
+  o.total=o.mInc+o.eInc; o.count=all.length;
+  return o;
+}
+function toast(msg,undo){
+  const t=$("#toast"); t.innerHTML="<span>"+esc(msg)+"</span>"+(undo?'<button id="undoBtn">Undo</button>':"");
+  t.hidden=false; clearTimeout(toast.t);
+  if(undo) $("#undoBtn").onclick=()=>{t.hidden=true;undo()};
+  toast.t=setTimeout(()=>t.hidden=true,undo?7000:2600);
+}
+function uid(){return "r"+Math.random().toString(36).slice(2,11)}
+
+// ---------- writes ----------
+async function patchMonth(k,patch){
+  if(!db) throw {code:"unavailable"};
+  const ref=db.doc("months/"+k);
+  if(months[k]) await ref.update(patch); else { months[k]=patch; await ref.set(patch); }
+}
+function writeErr(e){
+  if(e&&e.code==="invalid_argument"){canWrite=false;render();toast("You can view these records but not change them.");return}
+  if(e&&e.code==="quota_exceeded"){toast("Storage is full for this app.");return}
+  toast("Could not save. Check your connection and try again.");
+}
+
+// ---------- month selector ----------
+function monthKeys(){
+  const ks=new Set(Object.keys(months)); ks.add(todayKey); ks.add(cur);
+  // also include a couple of months ahead of the latest
+  const arr=[...ks].sort();
+  return arr.reverse();
+}
+function renderMonthSel(){
+  const sel=$("#monthSel"); sel.innerHTML=monthKeys().map(k=>`<option value="${k}" ${k===cur?"selected":""}>${monthLabel(k)}</option>`).join("");
+}
+$("#monthSel").onchange=e=>{cur=e.target.value;editing=null;render()};
+$("#prevM").onclick=()=>{cur=shiftKey(cur,-1);editing=null;render()};
+$("#nextM").onclick=()=>{cur=shiftKey(cur,1);editing=null;render()};
+
+// ---------- views ----------
+function tilesHTML(c){
+  return `<div class="tiles">
+    <div class="tile"><span class="lbl">Morning income</span><span class="val">${rs(c.mInc)}</span><span class="hint">${c.m.length} patients</span></div>
+    <div class="tile"><span class="lbl">Evening income</span><span class="val">${rs(c.eInc)}</span><span class="hint">${c.e.length} patients</span></div>
+    <div class="tile"><span class="lbl">Total income</span><span class="val">${rs(c.total)}</span><span class="hint">${c.count} entries</span></div>
+    <div class="tile hl"><span class="lbl">${esc(settings.doctor)} after ${settings.tax}% tax</span><span class="val">${rs(c.net)}</span><span class="hint" style="color:inherit;opacity:.85">Share ${rs(c.docTotal)}</span></div>
+  </div>`;
+}
+function listsHTML(k){
+  const all=recs(k); const pats=new Set(), procs=new Set();
+  Object.values(months).forEach(md=>Object.values(md.records||{}).forEach(r=>{if(r&&!r.deleted){pats.add(r.patient);procs.add(r.procedure)}}));
+  return `<datalist id="dlPat">${[...pats].sort().map(p=>`<option value="${esc(p)}">`).join("")}</datalist>
+          <datalist id="dlProc">${[...procs].sort().map(p=>`<option value="${esc(p)}">`).join("")}</datalist>`;
+}
+function formHTML(){
+  let r={date:(cur===todayKey?todayISO:cur+"-01"),shift,patient:"",procedure:"",charges:""};
+  if(editing){const x=recs(editing.key).find(v=>v.id===editing.id); if(x) r=x; else editing=null;}
+  const dis=canWrite&&ready?"":"disabled";
+  return `<section class="panel" aria-labelledby="fh">
+    <div class="panel-head"><h2 id="fh">${editing?"Edit record":"Add a patient"}</h2>${editing?'<span class="hint">Change the fields and save</span>':'<span class="hint">Totals and shares update by themselves</span>'}</div>
+    <form id="recForm" class="form" autocomplete="off">
+      <div class="field"><label for="fDate">Date</label><input id="fDate" type="date" required value="${esc(r.date)}" ${dis}></div>
+      <div class="field"><label>Time</label><div class="seg" role="group" aria-label="Shift">
+        <button type="button" data-v="morning" aria-pressed="${r.shift!=="evening"}" ${dis}>Morning</button>
+        <button type="button" data-v="evening" aria-pressed="${r.shift==="evening"}" ${dis}>Evening</button></div></div>
+      <div class="field wide"><label for="fPat">Patient's name</label><input id="fPat" list="dlPat" required placeholder="Full name" value="${esc(r.patient)}" ${dis}></div>
+      <div class="field wide"><label for="fProc">Procedure</label><input id="fProc" list="dlProc" required placeholder="e.g. RCT, FILLING, CROWN" value="${esc(r.procedure)}" ${dis}></div>
+      <div class="field"><label for="fChg">Charges (Rs)</label><input id="fChg" inputmode="numeric" required placeholder="5000" value="${esc(r.charges)}" ${dis}></div>
+      <div class="btnrow">${editing?'<button type="button" class="btn plain" id="delEdit" style="color:var(--danger)">Delete</button><button type="button" class="btn plain" id="cancelEdit">Cancel</button>':""}<button class="btn" type="submit" ${dis}>${editing?"Save":"Add"}</button></div>
+    </form>
+    <div id="formErr" class="err" hidden></div>
+  </section>`;
+}
+function shiftTable(rows,label,cls,total){
+  if(!rows.length) return `<div class="empty">No ${label.toLowerCase()} patients yet this month.</div>`;
+  return `<div class="scroll"><table class="ledger"><thead><tr><th>S#</th><th>Date</th><th>Patient's name</th><th>Procedure</th><th class="r">Charges</th><th class="r"><span hidden>Actions</span></th></tr></thead><tbody>
+  ${rows.map((r,i)=>`<tr data-row="${r.id}" class="${editing&&editing.id===r.id?"editing":""}"><td class="num">${i+1}</td><td class="num">${ddmmyy(r.date).replace(/(\/\d+)$/,'<span class="yy">$1</span>')}</td><td>${esc(r.patient)}</td><td>${esc(r.procedure)}</td><td class="r num">${fmt(r.charges)}</td>
+   <td>${canWrite?`<div class="act"><button data-edit="${r.id}">Edit</button><button class="del" data-del="${r.id}">Delete</button></div>`:""}</td></tr>`).join("")}
+  </tbody><tfoot><tr><td colspan="4">Sub total</td><td class="r num">${fmt(total)}</td><td></td></tr></tfoot></table></div>`;
+}
+function expensesHTML(k,c){
+  const ex=(months[k]&&months[k].exp)||{}; const dis=canWrite&&ready?"":"disabled";
+  const f=(id,lbl)=>{const v=ex[id]??"";const n=calc(v);return `<div class="field"><label for="x_${id}">${lbl}</label><input id="x_${id}" data-exp="${id}" value="${esc(v)}" placeholder="0" ${dis}><span class="calc" id="c_${id}">${v&&/[-+*/x×]/i.test(String(v).slice(1))?(isFinite(n)?"= "+fmt(n):"Not a valid amount"):""}</span></div>`};
+  return `<section class="panel"><div class="panel-head"><h2>Deductions for ${monthLabel(k)}</h2><span class="hint">You can type a sum like 850*4 or 850+850</span></div>
+  <div class="exp">${f("mMat","Morning material")}${f("mLab","Morning lab charges")}${f("eMat","Evening material")}${f("eLab","Evening lab charges")}</div></section>`;
+}
+function viewRecords(){
+  const c=compute(cur);
+  return `${tilesHTML(c)}${listsHTML(cur)}${formHTML()}
+  <section class="panel"><div class="panel-head"><span class="chip morning">Morning time</span><span class="hint mobonly">Tap a row to edit</span><span class="num">${rs(c.mInc)}</span></div>${shiftTable(c.m,"Morning","morning",c.mInc)}</section>
+  <section class="panel"><div class="panel-head"><span class="chip evening">Evening time</span><span class="num">${rs(c.eInc)}</span></div>${shiftTable(c.e,"Evening","evening",c.eInc)}</section>
+  ${expensesHTML(cur,c)}`;
+}
+function exportBar(){
+  return `<div class="btnrow" style="justify-content:flex-end">
+    <button class="btn plain" id="copySum">Copy summary text</button>
+    ${downloads?'<button class="btn" id="dlX">Download Excel</button>':""}</div>`;
+}
+function stmtSheet(rows,total){
+  const n=Math.max(rows.length,1);
+  return `<div class="scroll"><table class="sheet"><thead><tr><th>S#</th><th>Date</th><th>Patient's name</th><th>Procedure</th><th class="r">Charges</th></tr></thead><tbody>
+   ${rows.map((r,i)=>`<tr><td class="num">${i+1}</td><td class="num">${ddmmyy(r.date)}</td><td>${esc(r.patient)}</td><td>${esc(r.procedure)}</td><td class="r num">${fmt(r.charges)}</td></tr>`).join("")||'<tr><td colspan="5" class="hint">No entries</td></tr>'}
+   <tr class="sub"><td colspan="4" class="r">SUB TOTAL</td><td class="r num">${fmt(total)}</td></tr></tbody></table></div>`;
+}
+function paperHead(k,title){
+  const [y,m]=k.split("-");
+  return `<div class="ph"><h2>${esc(settings.clinic)}</h2><div class="sub">(${esc(settings.doctorFull)})</div><div class="mo">${title?title+" · ":""}${MN[+m-1]} ${y}</div></div>`;
+}
+function viewStatement(){
+  const c=compute(cur);
+  return `${exportBar()}<article class="paper">${paperHead(cur,"")}
+    <h3>Morning time</h3>${stmtSheet(c.m,c.mInc)}
+    <h3>Evening time</h3>${stmtSheet(c.e,c.eInc)}
+    <table class="sheet"><tr class="grand"><td>TOTAL</td><td class="r num">${fmt(c.total)}</td></tr></table>
+  </article>`;
+}
+function summaryRows(c){
+  const S=settings, D=S.doctor;
+  const row=(l,v,cls)=>`<tr class="${cls||""}"><td>${esc(l)}</td><td>${fmt(v)}</td></tr>`;
+  let h=`<tr class="sec"><td colspan="2">MORNING TIME</td></tr>`+row("TOTAL INCOME",c.mInc,"strong")+row("MATERIAL (SUBTRACT)",c.mMat,"minus")+row("LAB CHARGES (SUBTRACT)",c.mLab,"minus")+row("TOTAL REMAINING",c.mRem,"strong")+row(`HOSPITAL SHARE ${S.mHospital}%`,c.mHosp)+row(`${D} SHARE ${100-S.mHospital}%`,c.mDoc);
+  h+=`<tr class="sec"><td colspan="2">EVENING TIME</td></tr>`+row("TOTAL INCOME",c.eInc,"strong")+(c.eMat?row("MATERIAL (SUBTRACT)",c.eMat,"minus"):"")+row("LAB CHARGES EVENING (SUBTRACT)",c.eLab,"minus")+row("TOTAL REMAINING",c.eRem,"strong")+row(`${D} SHARE ${S.eDoctor}%`,c.eDoc)+c.eShares.map(s=>row(`${s.name} SHARE ${s.pct}%`,s.amt)).join("");
+  h+=`<tr class="sec"><td colspan="2">&nbsp;</td></tr>`+row(`${D} TOTAL SHARE`,c.docTotal,"strong")+row(`${S.tax}% TAX`,c.tax,"minus")+row(`${D} TOTAL AFTER TAX DEDUCTION`,c.net,"net");
+  return h;
+}
+function viewSummary(){
+  const c=compute(cur);
+  return `${exportBar()}<article class="paper">${paperHead(cur,"Summary")}
+   <div class="scroll"><table class="sum">${summaryRows(c)}</table></div>
+   ${settings.softCopy.length?`<div class="cc"><strong>Soft copy to:</strong><ul>${settings.softCopy.map(s=>`<li>${esc(s)}</li>`).join("")}</ul></div>`:""}
+  </article>`;
+}
+function viewYear(){
+  const keys=Object.keys(months).filter(k=>recs(k).length).sort();
+  if(!keys.length) return `<div class="empty">No months recorded yet.</div>`;
+  const rows=keys.map(k=>({k,c:compute(k)}));
+  const max=Math.max(...rows.map(r=>r.c.total),1);
+  const T=rows.reduce((a,{c})=>{["mInc","eInc","total","docTotal","tax","net"].forEach(f=>a[f]=(a[f]||0)+c[f]);return a},{});
+  return `<section class="panel"><div class="panel-head"><h2>Month by month</h2><span class="hint">Tap a month to open it</span></div>
+  <div class="scroll"><table class="ledger yr"><thead><tr><th>Month</th><th class="r">Morning</th><th class="r">Evening</th><th class="r">Total income</th><th style="width:18%"></th><th class="r">${esc(settings.doctor)} share</th><th class="r">Tax</th><th class="r">After tax</th></tr></thead><tbody>
+  ${rows.reverse().map(({k,c})=>`<tr><td><a href="#records" data-open="${k}">${monthLabel(k)}</a></td><td class="r num">${fmt(c.mInc)}</td><td class="r num">${fmt(c.eInc)}</td><td class="r num">${fmt(c.total)}</td><td><div class="bar" style="width:${(c.total/max*100).toFixed(1)}%"></div></td><td class="r num">${fmt(c.docTotal)}</td><td class="r num">${fmt(c.tax)}</td><td class="r num"><strong>${fmt(c.net)}</strong></td></tr>`).join("")}
+  </tbody><tfoot><tr><td>All months</td><td class="r num">${fmt(T.mInc)}</td><td class="r num">${fmt(T.eInc)}</td><td class="r num">${fmt(T.total)}</td><td></td><td class="r num">${fmt(T.docTotal)}</td><td class="r num">${fmt(T.tax)}</td><td class="r num">${fmt(T.net)}</td></tr></tfoot></table></div></section>`;
+}
+function viewShares(){
+  const S=settings, dis=canWrite&&ready?"":"disabled";
+  return `<section class="panel"><div class="panel-head"><h2>Statement heading</h2></div>
+    <div class="exp"><div class="field"><label for="sClinic">Clinic name</label><input id="sClinic" value="${esc(S.clinic)}" ${dis}></div>
+    <div class="field"><label for="sFull">Doctor (full name)</label><input id="sFull" value="${esc(S.doctorFull)}" ${dis}></div>
+    <div class="field"><label for="sDoc">Doctor (short, used in summary)</label><input id="sDoc" value="${esc(S.doctor)}" ${dis}></div></div></section>
+  <section class="panel"><div class="panel-head"><h2>Morning split</h2><span class="hint">Applied after material and lab charges</span></div>
+    <div class="exp"><div class="field"><label for="sMH">Hospital %</label><input id="sMH" inputmode="decimal" value="${S.mHospital}" ${dis}></div>
+    <div class="field"><label>Doctor %</label><input value="${100-S.mHospital}" disabled id="sMD"></div></div></section>
+  <section class="panel"><div class="panel-head"><h2>Evening split</h2><span class="hint" id="eTot"></span></div>
+    <div class="exp"><div class="field"><label for="sED">Doctor %</label><input id="sED" inputmode="decimal" value="${S.eDoctor}" ${dis}></div></div>
+    <div class="shares" id="shareRows">${S.eShares.map((s,i)=>shareRow(s,i,dis)).join("")}</div>
+    <div><button class="btn ghost" id="addShare" ${dis}>Add a person</button></div></section>
+  <section class="panel"><div class="panel-head"><h2>Tax and copies</h2></div>
+    <div class="exp"><div class="field"><label for="sTax">Tax on doctor's share %</label><input id="sTax" inputmode="decimal" value="${S.tax}" ${dis}></div></div>
+    <div class="field"><label for="sCC">Soft copy to (one per line)</label><textarea id="sCC" rows="4" ${dis}>${esc(S.softCopy.join("\n"))}</textarea></div></section>
+  ${backupHTML()}<div class="btnrow" style="justify-content:flex-end"><span id="setMsg" class="hint"></span><button class="btn plain" id="resetSet" ${dis}>Restore defaults</button><button class="btn" id="saveSet" ${dis}>Save changes</button></div>`;
+}
+function shareRow(s,i,dis){return `<div class="sharerow" data-i="${i}"><div class="field"><label for="shn${i}">Name</label><input id="shn${i}" class="shn" value="${esc(s.name)}" ${dis}></div><div class="field"><label for="shp${i}">%</label><input id="shp${i}" class="shp" inputmode="decimal" value="${s.pct}" ${dis}></div><button class="btn plain" data-rm="${i}" aria-label="Remove ${esc(s.name)}" style="align-self:end" ${dis}>Remove</button></div>`}
+
+// ---------- render ----------
+function render(){
+  $("#brandTitle").textContent=settings.clinic;
+  $("#brandSub").textContent=settings.doctorFull.replace(/\b\w+/g,w=>w[0]+w.slice(1).toLowerCase())+" · patient records & monthly statement";
+  renderMonthSel();
+  document.querySelectorAll(".tabs a").forEach(a=>{if(a.dataset.tab===tab)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current")});
+  const b=$("#banner");
+  if(!ready&&db===null&&render.tried){b.hidden=false;b.textContent="Sign in to see your records."}
+  else if(!ready){b.hidden=false;b.textContent="Loading your records…"}
+  else if(!canWrite){b.hidden=false;b.textContent="You can view these records but not change them."}
+  else b.hidden=true;
+  const v=$("#view");
+  const focusId=document.activeElement&&document.activeElement.id;
+  v.innerHTML = tab==="statement"?viewStatement():tab==="summary"?viewSummary():tab==="year"?viewYear():tab==="shares"?viewShares():viewRecords();
+  v.style.display="flex";v.style.flexDirection="column";v.style.gap="18px";
+  bind();
+  if(focusId&&document.getElementById(focusId)&&tab!=="records") document.getElementById(focusId).focus();
+}
+
+function bind(){
+  bindBackup();
+  const form=$("#recForm");
+  if(form){
+    form.querySelectorAll(".seg button").forEach(btn=>btn.onclick=()=>{shift=btn.dataset.v;form.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed",x===btn))});
+    form.onsubmit=async e=>{
+      e.preventDefault();
+      const err=$("#formErr"); err.hidden=true;
+      const date=$("#fDate").value, pat=$("#fPat").value.trim().toUpperCase(), proc=$("#fProc").value.trim().toUpperCase(), chg=calc($("#fChg").value);
+      const sh=form.querySelector('.seg button[aria-pressed="true"]').dataset.v;
+      if(!date||!pat||!proc){err.textContent="Fill in the date, patient's name and procedure.";err.hidden=false;return}
+      if(!isFinite(chg)||chg<0){err.textContent="Charges must be a number, like 5000.";err.hidden=false;return}
+      const k=date.slice(0,7);
+      try{
+        if(editing){
+          const old=recs(editing.key).find(r=>r.id===editing.id);
+          const rec={date,shift:sh,patient:pat,procedure:proc,charges:chg,at:old?old.at:Date.now()};
+          if(editing.key===k) await patchMonth(k,{records:{[editing.id]:rec}});
+          else { await patchMonth(k,{records:{[editing.id]:rec}}); await patchMonth(editing.key,{records:{[editing.id]:{deleted:true}}}); }
+          editing=null; cur=k; toast("Saved");
+        } else {
+          const id=uid();
+          await patchMonth(k,{records:{[id]:{date,shift:sh,patient:pat,procedure:proc,charges:chg,at:Date.now()}}});
+          shift=sh;
+          if(k!==cur){cur=k}
+          toast(`Added ${pat} · ${rs(chg)}`);
+        }
+        render(); const p=$("#fPat"); if(p) p.focus();
+      }catch(x){writeErr(x)}
+    };
+    const ce=$("#cancelEdit"); if(ce) ce.onclick=()=>{editing=null;render()};
+  }
+  document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{editing={key:cur,id:b.dataset.edit};const r=recs(cur).find(x=>x.id===b.dataset.edit);if(r)shift=r.shift;render();window.scrollTo({top:0,behavior:"smooth"})});
+  document.querySelectorAll("[data-row]").forEach(tr=>tr.onclick=e=>{if(!canWrite||window.innerWidth>560||e.target.closest("button"))return;editing={key:cur,id:tr.dataset.row};const r=recs(cur).find(x=>x.id===tr.dataset.row);if(r)shift=r.shift;render();window.scrollTo({top:0,behavior:"smooth"})});
+  const de=$("#delEdit"); if(de) de.onclick=()=>{const id=editing.id;editing=null;delRec(id,cur)};
+  document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>delRec(b.dataset.del,cur));
+  async function delRec(id,k){
+    { const r=recs(k).find(x=>x.id===id);
+    try{await patchMonth(k,{records:{[id]:{deleted:true}}}); if(editing&&editing.id===id)editing=null; render();
+      toast(`Deleted ${r?r.patient:"record"}`,async()=>{try{await patchMonth(k,{records:{[id]:{deleted:false}}});render()}catch(x){writeErr(x)}});
+    }catch(x){writeErr(x)}
+  }}
+  document.querySelectorAll("[data-exp]").forEach(inp=>{
+    const f=inp.dataset.exp;
+    inp.oninput=()=>{const v=inp.value,n=calc(v);$("#c_"+f).textContent=v&&/[-+*/x×]/i.test(v.slice(1))?(isFinite(n)?"= "+fmt(n):"Not a valid amount"):(v&&!isFinite(n)?"Not a valid amount":"")};
+    inp.onchange=async()=>{
+      const v=inp.value.trim(); if(v&&!isFinite(calc(v))) return;
+      const old=(months[cur]&&months[cur].exp&&months[cur].exp[f])??"";
+      if(v===old) return;
+      try{await patchMonth(cur,{exp:{[f]:v}});toast("Deductions saved")}catch(x){writeErr(x)}
+    };
+  });
+  document.querySelectorAll("[data-open]").forEach(a=>a.onclick=()=>{cur=a.dataset.open});
+  const cs=$("#copySum"); if(cs) cs.onclick=copySummary;
+  const dx=$("#dlX"); if(dx) dx.onclick=downloadExcel;
+  // settings
+  const ss=$("#saveSet");
+  if(ss){
+    const upd=()=>{const ed=+$("#sED").value||0;const sum=ed+[...document.querySelectorAll(".shp")].reduce((a,i)=>a+(+i.value||0),0);$("#eTot").textContent="Evening total "+sum+"%"+(Math.abs(sum-100)>0.001?" — should be 100%":"");$("#eTot").className=Math.abs(sum-100)>0.001?"err":"hint";const mh=+$("#sMH").value;$("#sMD").value=isFinite(mh)?100-mh:""};
+    document.querySelectorAll("#view input").forEach(i=>i.addEventListener("input",upd)); upd();
+    const readShares=()=>[...document.querySelectorAll(".sharerow")].map(r=>({name:r.querySelector(".shn").value.trim().toUpperCase(),pct:+r.querySelector(".shp").value||0}));
+    $("#addShare").onclick=()=>{settings=Object.assign({},settings,{eShares:readShares().concat([{name:"",pct:0}])});keepDraft();};
+    document.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{const s=readShares();s.splice(+b.dataset.rm,1);settings=Object.assign({},settings,{eShares:s});keepDraft()});
+    function keepDraft(){const d={clinic:$("#sClinic").value,doctorFull:$("#sFull").value,doctor:$("#sDoc").value,mHospital:+$("#sMH").value,eDoctor:+$("#sED").value,tax:+$("#sTax").value,softCopy:$("#sCC").value.split("\n").map(s=>s.trim()).filter(Boolean)};settings=Object.assign({},settings,d);render()}
+    ss.onclick=async()=>{
+      const d={clinic:$("#sClinic").value.trim()||DEF.clinic,doctorFull:$("#sFull").value.trim()||DEF.doctorFull,doctor:$("#sDoc").value.trim().toUpperCase()||DEF.doctor,
+        mHospital:+$("#sMH").value,eDoctor:+$("#sED").value,tax:+$("#sTax").value,eShares:readShares().filter(s=>s.name),softCopy:$("#sCC").value.split("\n").map(s=>s.trim()).filter(Boolean)};
+      if(![d.mHospital,d.eDoctor,d.tax].every(n=>isFinite(n)&&n>=0&&n<=100)){$("#setMsg").textContent="Percentages must be between 0 and 100.";$("#setMsg").className="err";return}
+      try{await db.doc("config/settings").set(d);settings=Object.assign({},DEF,d);toast("Shares and names saved");render()}catch(x){writeErr(x)}
+    };
+    $("#resetSet").onclick=()=>{settings=Object.assign({},DEF);render();$("#setMsg").textContent="Defaults filled in. Press Save to keep them.";};
+  }
+}
+
+// ---------- exports ----------
+function summaryText(){
+  const c=compute(cur),S=settings,[y,m]=cur.split("-");
+  const L=(l,v)=>`${l}: ${fmt(v)}`;
+  return [`${S.clinic} — SUMMARY ${MN[+m-1]} ${y}`,"","MORNING TIME",L("Total income",c.mInc),L("Material (subtract)",c.mMat),L("Lab charges (subtract)",c.mLab),L("Total remaining",c.mRem),L(`Hospital share ${S.mHospital}%`,c.mHosp),L(`${S.doctor} share ${100-S.mHospital}%`,c.mDoc),"",
+   "EVENING TIME",L("Total income",c.eInc),...(c.eMat?[L("Material (subtract)",c.eMat)]:[]),L("Lab charges (subtract)",c.eLab),L("Total remaining",c.eRem),L(`${S.doctor} share ${S.eDoctor}%`,c.eDoc),...c.eShares.map(s=>L(`${s.name} share ${s.pct}%`,s.amt)),"",
+   L(`${S.doctor} total share`,c.docTotal),L(`${S.tax}% tax`,c.tax),L(`${S.doctor} total after tax deduction`,c.net)].join("\n");
+}
+async function copySummary(){
+  const t=summaryText();
+  try{await navigator.clipboard.writeText(t);toast("Summary copied")}
+  catch(e){const ta=document.createElement("textarea");ta.value=t;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("Summary copied")}catch(_){toast("Select and copy the summary from the Summary tab")}ta.remove()}
+}
+function buildWorkbook(){
+  const X=window.XLSX, c=compute(cur), S=settings, [y,m]=cur.split("-"), mon=MN[+m-1];
+  const NF="#,##0";
+  // Statement sheet
+  const s=[];
+  s.push([S.clinic]); s.push(["("+S.doctorFull+")"]); s.push([mon+" "+y]); s.push(["MORNING TIME"]); s.push([]);
+  s.push(["S#","DATE","PATIENT`S NAME","PROCEDURE","CHARGES"]);
+  const mStart=s.length+1;
+  c.m.forEach((r,i)=>s.push([i+1,ddmmyy(r.date),r.patient,r.procedure,{t:"n",v:+r.charges,z:NF}]));
+  const mEnd=s.length; const mSubRow=s.length+1;
+  s.push([null,null,null,"SUB TOTAL",{t:"n",f:c.m.length?`SUM(E${mStart}:E${mEnd})`:"0",v:c.mInc,z:NF}]);
+  s.push([]); s.push([]); s.push(["EVENING TIME"]);
+  s.push(["S#","DATE","PATIENT`S NAME","PROCEDURE","CHARGES"]);
+  const eStart=s.length+1;
+  c.e.forEach((r,i)=>s.push([i+1,ddmmyy(r.date),r.patient,r.procedure,{t:"n",v:+r.charges,z:NF}]));
+  const eEnd=s.length; const eSubRow=s.length+1;
+  s.push([null,null,null,"SUB TOTAL",{t:"n",f:c.e.length?`SUM(E${eStart}:E${eEnd})`:"0",v:c.eInc,z:NF}]);
+  s.push([]);
+  s.push([null,null,null,"TOTAL",{t:"n",f:`E${eSubRow}+E${mSubRow}`,v:c.total,z:NF}]);
+  const ws1=X.utils.aoa_to_sheet(s);
+  ws1["!cols"]=[{wch:5},{wch:11},{wch:28},{wch:24},{wch:12}];
+  ws1["!merges"]=[0,1,2].map(r=>({s:{r,c:0},e:{r,c:4}}));
+  // Summary sheet (same rows and formulas as the 2026 summary file)
+  const st="'Statement'!";
+  const q=[]; const R=()=>q.length+1;
+  const n=(v,f)=>({t:"n",v,f,z:"#,##0.##"});
+  q.push(["SUMMARY "+mon,+y]); q.push(["MORNING TIME"]);
+  const r1=R(); q.push(["TOTAL INCOME",n(c.mInc,`${st}E${mSubRow}`)]);
+  const r2=R(); q.push(["MATERIAL (SUBTRACT)",n(c.mMat)]);
+  const r3=R(); q.push(["LAB CHARGES (SUBTRACT)",n(c.mLab)]);
+  const r4=R(); q.push(["TOTAL REMAINING",n(c.mRem,`B${r1}-B${r2}-B${r3}`)]);
+  q.push([`HOSPITAL SHARE ${S.mHospital}%`,n(c.mHosp,`B${r4}*${S.mHospital/100}`)]);
+  const rMD=R(); q.push([`${S.doctor} SHARE ${100-S.mHospital}%`,n(c.mDoc,`B${r4}*${(100-S.mHospital)/100}`)]);
+  q.push([]); q.push(["EVENING TIME"]);
+  const e1=R(); q.push(["TOTAL INCOME",n(c.eInc,`${st}E${eSubRow}`)]);
+  const e2=R(); q.push(["MATERIAL (SUBTRACT)",n(c.eMat)]);
+  const e3=R(); q.push(["LAB CHARGES EVENING (SUBTRACT)",n(c.eLab)]);
+  const e4=R(); q.push(["TOTAL REMAINING",n(c.eRem,`B${e1}-B${e2}-B${e3}`)]);
+  const rED=R(); q.push([`${S.doctor} SHARE ${S.eDoctor}%`,n(c.eDoc,`B${e4}*${S.eDoctor/100}`)]);
+  c.eShares.forEach(sh=>q.push([`${sh.name} SHARE ${sh.pct}%`,n(sh.amt,`B${e4}*${sh.pct/100}`)]));
+  q.push([]);
+  const t1=R(); q.push([`${S.doctor} TOTAL SHARE`,n(c.docTotal,`B${rED}+B${rMD}`)]);
+  const t2=R(); q.push([`${S.tax}% TAX`,n(c.tax,`B${t1}*${S.tax/100}`)]);
+  q.push([`${S.doctor} TOTAL AFTER TAX DEDUCTION`,n(c.net,`B${t1}-B${t2}`)]);
+  q.push([]); q.push([]);
+  if(S.softCopy.length){q.push(["Soft Copy to:"]);S.softCopy.forEach(l=>q.push(["•  "+l]))}
+  const ws2=X.utils.aoa_to_sheet(q); ws2["!cols"]=[{wch:40},{wch:16}];
+  const wb=X.utils.book_new();
+  X.utils.book_append_sheet(wb,ws1,"Statement");
+  X.utils.book_append_sheet(wb,ws2,"Summary");
+  return X.write(wb,{bookType:"xlsx",type:"array"});
+}
+async function downloadExcel(){
+  if(!window.XLSX){toast("The Excel tool did not load. Reload the page and try again.");return}
+  const [y,m]=cur.split("-");
+  try{await downloads.save({filename:`Statement ${MN[+m-1]} ${y}.xlsx`,data:new Uint8Array(buildWorkbook())});}
+  catch(e){ if(e&&e.code==="declined") return; if(e&&e.code==="rate_limited"){toast("A download is already waiting for you to confirm.");return} toast("Download is not available here.");}
+}
+
+// ---------- routing ----------
+function route(){const h=location.hash.slice(1);tab=["records","statement","summary","year","shares"].includes(h)?h:"records";render()}
+window.addEventListener("hashchange",route);
+
+// ---------- boot ----------
+route();
+render.tried=true;
+(function boot(){
+  if(!window.firebase||!window.FIREBASE_CONFIG){$("#loginMsg").textContent="Could not load. Check your internet and open the app again.";showLogin(true);return}
+  if(!firebase.apps.length) firebase.initializeApp(window.FIREBASE_CONFIG);
+  const fs=firebase.firestore();try{fs.settings({cacheSizeBytes:100*1024*1024,merge:true})}catch(e){}
+  fs.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+  firebase.auth().onAuthStateChanged(u=>{
+    unsubs.forEach(f=>{try{f()}catch(e){}});unsubs=[];months={};ready=false;editing=null;
+    if(!u){uidNow=null;db=null;showLogin(true);syncChip();render();return}
+    uidNow=u.uid;showLogin(false);$("#who").textContent=u.email||"";
+    db=makeDB(fs,u.uid);downloads=localDownloads;canWrite=true;
+    unsubs.push(db.doc("config/settings").onSnapshot(s=>{settings=Object.assign({},DEF,s.exists?s.data():{});if(tab!=="shares")render()},e=>{}));
+    unsubs.push(db.collection("months").onSnapshot(snap=>{
+      const m={}; snap.docs.forEach(d=>{m[d.id]=d.data()}); months=m; ready=true;
+      const ae=document.activeElement;
+      if(ae&&ae.closest&&(ae.closest("#recForm")||ae.closest("[data-exp]")||ae.matches("[data-exp]")||ae.closest(".shares")||(tab==="shares"&&ae.tagName!=="BUTTON"))&&ae.value){renderSoft();return}
+      render();
+    },e=>{toast("Could not load records. Sign out and sign in again.");}));
+    render();syncChip();
+  });
+})();
+function showLogin(on){$("#login").hidden=!on;$("#app").hidden=on}
+$("#loginForm").onsubmit=async e=>{
+  e.preventDefault();const em=$("#lEmail").value.trim(),pw=$("#lPass").value,msg=$("#loginMsg"),btn=$("#lGo");
+  const creating=$("#loginForm").dataset.mode==="new";msg.textContent="";btn.disabled=true;
+  try{ if(creating) await firebase.auth().createUserWithEmailAndPassword(em,pw); else await firebase.auth().signInWithEmailAndPassword(em,pw); }
+  catch(x){const c=x&&x.code||"";msg.textContent=c.includes("invalid-credential")||c.includes("wrong-password")||c.includes("user-not-found")?"Email or password is wrong.":c.includes("email-already")?"This email already has an account. Sign in instead.":c.includes("weak-password")?"Use a password of at least 6 characters.":c.includes("invalid-email")?"That email doesn't look right.":c.includes("network")?"No internet. Connect and try again.":"Could not sign in. Try again."}
+  btn.disabled=false;
+};
+$("#lSwitch").onclick=()=>{const f=$("#loginForm"),n=f.dataset.mode!=="new";f.dataset.mode=n?"new":"in";$("#lTitle").textContent=n?"Create your account":"Sign in";$("#lGo").textContent=n?"Create account":"Sign in";$("#lSwitch").textContent=n?"I already have an account":"New here? Create an account";$("#lPass").autocomplete=n?"new-password":"current-password";$("#loginMsg").textContent=""};
+$("#lForgot").onclick=async()=>{const em=$("#lEmail").value.trim(),msg=$("#loginMsg");if(!em){msg.textContent="Type your email first, then tap Forgot password.";return}try{await firebase.auth().sendPasswordResetEmail(em);msg.textContent="We sent a reset link to "+em+"."}catch(x){msg.textContent="Could not send the link. Check the email."}};
+$("#signOut").onclick=()=>firebase.auth().signOut();
+if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").then(r=>{r.addEventListener("updatefound",()=>{const w=r.installing;w&&w.addEventListener("statechange",()=>{if(w.state==="activated"&&navigator.serviceWorker.controller)toast("App updated. Close and reopen to use the new version.")})})}).catch(()=>{})}
+function renderSoft(){ // refresh tables but keep the form as-is
+  const form=$("#recForm"); const vals={}; if(form) form.querySelectorAll("input").forEach(i=>vals[i.id]=i.value);
+  const focus=document.activeElement&&document.activeElement.id; render();
+  Object.entries(vals).forEach(([id,v])=>{const el=document.getElementById(id);if(el)el.value=v}); if(focus&&document.getElementById(focus))document.getElementById(focus).focus();
+}
+})();
+</script>
+
+</body>
+</html>
