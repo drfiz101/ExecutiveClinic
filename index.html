@@ -107,6 +107,7 @@ table{border-collapse:collapse;width:100%}
 .chip.evening{background:var(--evening-soft);color:var(--evening)}
 @media (max-width:560px){.ledger td:last-child,.ledger th:last-child{display:none}.ledger td,.ledger th{padding:7px 5px;font-size:.84rem}.ledger td:first-child,.ledger th:first-child{display:none}.ledger th{white-space:normal}.ledger .yy{display:none}.ledger tbody tr{cursor:pointer}.mobonly{display:inline}}
 .mobonly{display:none}
+.splitline{display:flex;flex-wrap:wrap;gap:10px 24px;align-items:center}
 .empty{padding:18px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px}
 
 .exp{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
@@ -303,6 +304,13 @@ function compute(k){
   const sum=a=>a.reduce((s,r)=>s+(+r.charges||0),0);
   const o={m,e,mInc:sum(m),eInc:sum(e)};
   ["mMat","mLab","eMat","eLab"].forEach(f=>{const v=calc(ex[f]);o[f]=isFinite(v)?v:0});
+  // One material cost for the month, split by each shift's share of the income
+  const T=calc(ex.mat);
+  if(ex.mat!=null&&String(ex.mat).trim()!==""&&isFinite(T)){
+    const inc=o.mInc+o.eInc;
+    o.mMat=inc?Math.round(T*o.mInc/inc):T; o.eMat=T-o.mMat;
+    o.matSplit=true; o.matTotal=T; o.mPct=inc?o.mInc/inc*100:100; o.ePct=100-o.mPct;
+  }
   o.mRem=o.mInc-o.mMat-o.mLab;
   o.mHosp=o.mRem*S.mHospital/100; o.mDoc=o.mRem*(100-S.mHospital)/100;
   o.eRem=o.eInc-o.eMat-o.eLab;
@@ -390,8 +398,13 @@ function shiftTable(rows,label,cls,total){
 function expensesHTML(k,c){
   const ex=(months[k]&&months[k].exp)||{}; const dis=canWrite&&ready?"":"disabled";
   const f=(id,lbl)=>{const v=ex[id]??"";const n=calc(v);return `<div class="field"><label for="x_${id}">${lbl}</label><input id="x_${id}" data-exp="${id}" value="${esc(v)}" placeholder="0" ${dis}><span class="calc" id="c_${id}">${v&&/[-+*/x×]/i.test(String(v).slice(1))?(isFinite(n)?"= "+fmt(n):"Not a valid amount"):""}</span></div>`};
+  const pc=v=>(Math.round(v*10)/10)+"%";
+  const split=c.matSplit
+    ? `<div class="splitline"><span><span class="chip morning">Morning</span> <span class="num">${rs(c.mMat)}</span> <span class="hint">(${pc(c.mPct)} of income)</span></span><span><span class="chip evening">Evening</span> <span class="num">${rs(c.eMat)}</span> <span class="hint">(${pc(c.ePct)} of income)</span></span></div>`
+    : ((ex.mMat||ex.eMat)?`<p class="hint" style="margin:0">This month uses the separate figures from your old sheet: morning ${rs(c.mMat)}, evening ${rs(c.eMat)}. Enter the month's total material above to split it by income instead.</p>`:`<p class="hint" style="margin:0">Enter the whole month's material cost. It is split between morning and evening by how much each earned.</p>`);
   return `<section class="panel"><div class="panel-head"><h2>Deductions for ${monthLabel(k)}</h2><span class="hint">You can type a sum like 850*4 or 850+850</span></div>
-  <div class="exp">${f("mMat","Morning material")}${f("mLab","Morning lab charges")}${f("eMat","Evening material")}${f("eLab","Evening lab charges")}</div></section>`;
+  <div class="exp">${f("mat","Material cost (whole month)")}${f("mLab","Morning lab charges")}${f("eLab","Evening lab charges")}</div>
+  ${split}</section>`;
 }
 function viewRecords(){
   const c=compute(cur);
@@ -426,8 +439,8 @@ function viewStatement(){
 function summaryRows(c){
   const S=settings, D=S.doctor;
   const row=(l,v,cls)=>`<tr class="${cls||""}"><td>${esc(l)}</td><td>${fmt(v)}</td></tr>`;
-  let h=`<tr class="sec"><td colspan="2">MORNING TIME</td></tr>`+row("TOTAL INCOME",c.mInc,"strong")+row("MATERIAL (SUBTRACT)",c.mMat,"minus")+row("LAB CHARGES (SUBTRACT)",c.mLab,"minus")+row("TOTAL REMAINING",c.mRem,"strong")+row(`HOSPITAL SHARE ${S.mHospital}%`,c.mHosp)+row(`${D} SHARE ${100-S.mHospital}%`,c.mDoc);
-  h+=`<tr class="sec"><td colspan="2">EVENING TIME</td></tr>`+row("TOTAL INCOME",c.eInc,"strong")+(c.eMat?row("MATERIAL (SUBTRACT)",c.eMat,"minus"):"")+row("LAB CHARGES EVENING (SUBTRACT)",c.eLab,"minus")+row("TOTAL REMAINING",c.eRem,"strong")+row(`${D} SHARE ${S.eDoctor}%`,c.eDoc)+c.eShares.map(s=>row(`${s.name} SHARE ${s.pct}%`,s.amt)).join("");
+  let h=`<tr class="sec"><td colspan="2">MORNING TIME</td></tr>`+row("TOTAL INCOME",c.mInc,"strong")+row(c.matSplit?`MATERIAL (SUBTRACT) ${Math.round(c.mPct*10)/10}% of ${fmt(c.matTotal)}`:"MATERIAL (SUBTRACT)",c.mMat,"minus")+row("LAB CHARGES (SUBTRACT)",c.mLab,"minus")+row("TOTAL REMAINING",c.mRem,"strong")+row(`HOSPITAL SHARE ${S.mHospital}%`,c.mHosp)+row(`${D} SHARE ${100-S.mHospital}%`,c.mDoc);
+  h+=`<tr class="sec"><td colspan="2">EVENING TIME</td></tr>`+row("TOTAL INCOME",c.eInc,"strong")+(c.eMat||c.matSplit?row(c.matSplit?`MATERIAL (SUBTRACT) ${Math.round(c.ePct*10)/10}% of ${fmt(c.matTotal)}`:"MATERIAL (SUBTRACT)",c.eMat,"minus"):"")+row("LAB CHARGES EVENING (SUBTRACT)",c.eLab,"minus")+row("TOTAL REMAINING",c.eRem,"strong")+row(`${D} SHARE ${S.eDoctor}%`,c.eDoc)+c.eShares.map(s=>row(`${s.name} SHARE ${s.pct}%`,s.amt)).join("");
   h+=`<tr class="sec"><td colspan="2">&nbsp;</td></tr>`+row(`${D} TOTAL SHARE`,c.docTotal,"strong")+row(`${S.tax}% TAX`,c.tax,"minus")+row(`${D} TOTAL AFTER TAX DEDUCTION`,c.net,"net");
   return h;
 }
@@ -567,7 +580,7 @@ function summaryText(){
   const c=compute(cur),S=settings,[y,m]=cur.split("-");
   const L=(l,v)=>`${l}: ${fmt(v)}`;
   return [`${S.clinic} — SUMMARY ${MN[+m-1]} ${y}`,"","MORNING TIME",L("Total income",c.mInc),L("Material (subtract)",c.mMat),L("Lab charges (subtract)",c.mLab),L("Total remaining",c.mRem),L(`Hospital share ${S.mHospital}%`,c.mHosp),L(`${S.doctor} share ${100-S.mHospital}%`,c.mDoc),"",
-   "EVENING TIME",L("Total income",c.eInc),...(c.eMat?[L("Material (subtract)",c.eMat)]:[]),L("Lab charges (subtract)",c.eLab),L("Total remaining",c.eRem),L(`${S.doctor} share ${S.eDoctor}%`,c.eDoc),...c.eShares.map(s=>L(`${s.name} share ${s.pct}%`,s.amt)),"",
+   "EVENING TIME",L("Total income",c.eInc),...(c.eMat||c.matSplit?[L("Material (subtract)",c.eMat)]:[]),L("Lab charges (subtract)",c.eLab),L("Total remaining",c.eRem),L(`${S.doctor} share ${S.eDoctor}%`,c.eDoc),...c.eShares.map(s=>L(`${s.name} share ${s.pct}%`,s.amt)),"",
    L(`${S.doctor} total share`,c.docTotal),L(`${S.tax}% tax`,c.tax),L(`${S.doctor} total after tax deduction`,c.net)].join("\n");
 }
 async function copySummary(){
@@ -603,14 +616,14 @@ function buildWorkbook(){
   const n=(v,f)=>({t:"n",v,f,z:"#,##0.##"});
   q.push(["SUMMARY "+mon,+y]); q.push(["MORNING TIME"]);
   const r1=R(); q.push(["TOTAL INCOME",n(c.mInc,`${st}E${mSubRow}`)]);
-  const r2=R(); q.push(["MATERIAL (SUBTRACT)",n(c.mMat)]);
+  const r2=R(); q.push([c.matSplit?`MATERIAL (SUBTRACT) — share of ${fmt(c.matTotal)}`:"MATERIAL (SUBTRACT)",n(c.mMat,c.matSplit?`ROUND(${c.matTotal}*B${r1}/(B${r1}+B${r1+8}),0)`:undefined)]);
   const r3=R(); q.push(["LAB CHARGES (SUBTRACT)",n(c.mLab)]);
   const r4=R(); q.push(["TOTAL REMAINING",n(c.mRem,`B${r1}-B${r2}-B${r3}`)]);
   q.push([`HOSPITAL SHARE ${S.mHospital}%`,n(c.mHosp,`B${r4}*${S.mHospital/100}`)]);
   const rMD=R(); q.push([`${S.doctor} SHARE ${100-S.mHospital}%`,n(c.mDoc,`B${r4}*${(100-S.mHospital)/100}`)]);
   q.push([]); q.push(["EVENING TIME"]);
   const e1=R(); q.push(["TOTAL INCOME",n(c.eInc,`${st}E${eSubRow}`)]);
-  const e2=R(); q.push(["MATERIAL (SUBTRACT)",n(c.eMat)]);
+  const e2=R(); q.push([c.matSplit?`MATERIAL (SUBTRACT) — share of ${fmt(c.matTotal)}`:"MATERIAL (SUBTRACT)",n(c.eMat,c.matSplit?`${c.matTotal}-B${r2}`:undefined)]);
   const e3=R(); q.push(["LAB CHARGES EVENING (SUBTRACT)",n(c.eLab)]);
   const e4=R(); q.push(["TOTAL REMAINING",n(c.eRem,`B${e1}-B${e2}-B${e3}`)]);
   const rED=R(); q.push([`${S.doctor} SHARE ${S.eDoctor}%`,n(c.eDoc,`B${e4}*${S.eDoctor/100}`)]);
