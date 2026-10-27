@@ -119,6 +119,16 @@ table{border-collapse:collapse;width:100%}
 .sbox .sline.signed{padding-top:4px}
 .sbox .sline.signed img{height:84px;width:auto;max-width:72%;margin-bottom:-6px}
 .sigprev{height:70px;width:auto;background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px}
+.billgrp{display:flex;flex-direction:column;gap:10px}
+.billh{font-size:.95rem;margin:0}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px}
+.thumb{border:1px solid var(--line);border-radius:8px;padding:0;overflow:hidden;background:var(--bg);aspect-ratio:3/4;cursor:pointer}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.billview{position:fixed;inset:0;z-index:30;background:rgba(10,20,22,.92);display:flex;flex-direction:column;padding:calc(10px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));gap:10px}
+.bvbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;color:#fff;font-size:.9rem}
+.bvimg{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:auto}
+.bvimg img{max-width:100%;max-height:100%;object-fit:contain;background:#fff;border-radius:4px}
+@media print{.billview{display:none!important}}
 .splitline{display:flex;flex-wrap:wrap;gap:10px 24px;align-items:center}
 #printArea{display:none}
 @media print{
@@ -245,6 +255,7 @@ html,body{min-height:100%}
 </div>
 <div id="toast" class="toast" hidden></div>
 <div id="printArea"></div>
+<div id="billView" class="billview" hidden role="dialog" aria-label="Bill photo"></div>
 
 <script>
 (function(){
@@ -262,6 +273,9 @@ function makeDB(fs,uid){
         onSnapshot:(n,e)=>ref.onSnapshot(s=>n({exists:s.exists,data:()=>s.data()}),e)
       }},
     collection(){return {onSnapshot:(n,e)=>root.collection("months").onSnapshot({includeMetadataChanges:true},s=>{pending=s.metadata.hasPendingWrites;syncChip();n(s)},e)}},
+    watchBills:(k,n,e)=>root.collection("bills").where("month","==",k).onSnapshot(s=>n(s.docs.map(d=>Object.assign({id:d.id},d.data()))),e),
+    addBill:d=>root.collection("bills").add(d),
+    delBill:id=>root.collection("bills").doc(id).delete(),
     replaceMonths:async(obj)=>{const ks=Object.keys(obj);for(let i=0;i<ks.length;i+=400){const b=fs.batch();ks.slice(i,i+400).forEach(k=>b.set(root.collection("months").doc(k),obj[k]));await b.commit()}}
   };
 }
@@ -464,7 +478,8 @@ function viewRecords(){
   return `${tilesHTML(c)}${listsHTML(cur)}${formHTML()}
   <section class="panel"><div class="panel-head"><span class="chip morning">Morning time</span><span class="hint mobonly">Tap a row to edit</span><span class="num">${rs(c.mInc)}</span></div>${shiftTable(c.m,"Morning","morning",c.mInc)}</section>
   <section class="panel"><div class="panel-head"><span class="chip evening">Evening time</span><span class="num">${rs(c.eInc)}</span></div>${shiftTable(c.e,"Evening","evening",c.eInc)}</section>
-  ${expensesHTML(cur,c)}`;
+  ${expensesHTML(cur,c)}
+  ${billsHTML()}`;
 }
 // ---------- PDF of statement + summary (built in the app, works offline) ----------
 function buildPDF(k){
@@ -690,7 +705,53 @@ function render(){
   if(focusId&&document.getElementById(focusId)&&tab!=="records") document.getElementById(focusId).focus();
 }
 
+// ---------- bill photos (kept in the app, never printed) ----------
+let bills=[],billsKey=null,billsUnsub=null,billsLoading=false,viewBill=null,delArmed=false;
+function ensureBills(){
+  if(!db||!db.watchBills||billsKey===cur)return;
+  if(billsUnsub){try{billsUnsub()}catch(e){}}
+  billsKey=cur;bills=[];billsLoading=true;
+  billsUnsub=db.watchBills(cur,list=>{bills=list.sort((a,b)=>(a.at||0)-(b.at||0));billsLoading=false;if(tab==="records")renderBillsOnly()},()=>{billsLoading=false});
+}
+function billsHTML(){
+  const grp=(kind,label)=>{const list=bills.filter(b=>b.kind===kind);
+    return `<div class="billgrp"><div class="panel-head"><h3 class="billh">${label} <span class="hint">(${list.length})</span></h3>
+      ${canWrite&&ready?`<label class="btn plain" for="bf_${kind}" style="cursor:pointer">Add photo</label><input type="file" id="bf_${kind}" data-billkind="${kind}" accept="image/*" multiple hidden>`:""}</div>
+      ${list.length?`<div class="thumbs">${list.map(b=>`<button class="thumb" data-bill="${b.id}" aria-label="Open ${label.toLowerCase()} photo"><img src="${b.img}" alt=""></button>`).join("")}</div>`:`<div class="empty">No ${label.toLowerCase()} yet. Tap Add photo to take a picture or choose one.</div>`}</div>`};
+  return `<section class="panel" id="billsPanel"><div class="panel-head"><h2>Bills for ${monthLabel(cur)}</h2><span class="hint">Saved in the app only, not printed</span></div>
+    ${billsLoading?'<div class="hint">Loading photos…</div>':""}${grp("material","Material bills")}${grp("lab","Lab bills")}</section>`;
+}
+function renderBillsOnly(){const el=document.getElementById("billsPanel");if(!el){return}el.outerHTML=billsHTML();bindBills()}
+function shrink(file){return new Promise((res,rej)=>{const rd=new FileReader();rd.onerror=rej;rd.onload=()=>{const im=new Image();im.onerror=rej;im.onload=()=>{
+  let q=0.72,max=1500,url="";for(let t=0;t<4;t++){const sc=Math.min(1,max/Math.max(im.width,im.height)),cv=document.createElement("canvas");cv.width=Math.round(im.width*sc);cv.height=Math.round(im.height*sc);
+    const x=cv.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,cv.width,cv.height);x.drawImage(im,0,0,cv.width,cv.height);url=cv.toDataURL("image/jpeg",q);if(url.length<900000)break;q-=0.12;max-=250}
+  res(url)};im.src=rd.result};rd.readAsDataURL(file)})}
+function bindBills(){
+  document.querySelectorAll("[data-billkind]").forEach(inp=>inp.onchange=async e=>{
+    const files=[...e.target.files];if(!files.length)return;const kind=inp.dataset.billkind,k=cur;
+    toast(files.length>1?`Saving ${files.length} photos…`:"Saving photo…");
+    let n=0;for(const f of files){try{const img=await shrink(f);await db.addBill({month:k,kind,img,at:Date.now()});n++}catch(x){toast("A photo could not be saved. Try again.")}}
+    if(n)toast(n>1?`${n} photos saved`:"Photo saved");e.target.value="";
+  });
+  document.querySelectorAll("[data-bill]").forEach(b=>b.onclick=()=>{viewBill=bills.find(x=>x.id===b.dataset.bill);delArmed=false;showBill()});
+}
+function showBill(){
+  const v=document.getElementById("billView");
+  if(!viewBill){v.hidden=true;v.innerHTML="";return}
+  const kindName=viewBill.kind==="lab"?"Lab bill":"Material bill",d=new Date(viewBill.at||Date.now());
+  v.innerHTML=`<div class="bvbar"><span>${kindName} · ${monthLabel(viewBill.month)} · added ${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}</span>
+    <div class="btnrow"><button class="btn plain" id="bvSave">Save</button>${canWrite?`<button class="btn plain" id="bvDel" style="color:var(--danger)">${delArmed?"Tap again to delete":"Delete"}</button>`:""}<button class="btn" id="bvClose">Close</button></div></div>
+    <div class="bvimg"><img src="${viewBill.img}" alt="${kindName}"></div>`;
+  v.hidden=false;
+  $("#bvClose").onclick=()=>{viewBill=null;showBill()};
+  $("#bvSave").onclick=()=>{const b=atob(viewBill.img.split(",")[1]),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);
+    saveFile(`${kindName} ${monthLabel(viewBill.month)} ${viewBill.id.slice(0,4)}.jpg`,u,"image/jpeg")};
+  const dl=$("#bvDel");if(dl)dl.onclick=async()=>{if(!delArmed){delArmed=true;showBill();return}
+    try{await db.delBill(viewBill.id);viewBill=null;showBill();toast("Photo deleted")}catch(x){writeErr(x)}};
+}
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&viewBill){viewBill=null;showBill()}});
 function bind(){
+  ensureBills();bindBills();
   bindBackup();
   const form=$("#recForm");
   if(form){
@@ -864,6 +925,7 @@ render.tried=true;
   fs.enablePersistence({synchronizeTabs:true}).catch(()=>{});
   firebase.auth().onAuthStateChanged(u=>{
     unsubs.forEach(f=>{try{f()}catch(e){}});unsubs=[];months={};ready=false;editing=null;
+    if(billsUnsub){try{billsUnsub()}catch(e){}}billsUnsub=null;billsKey=null;bills=[];viewBill=null;
     if(!u){uidNow=null;db=null;showLogin(true);syncChip();render();return}
     uidNow=u.uid;showLogin(false);$("#who").textContent=u.email||"";
     db=makeDB(fs,u.uid);downloads=localDownloads;canWrite=true;
