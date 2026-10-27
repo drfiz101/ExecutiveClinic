@@ -470,7 +470,7 @@ function buildPDF(k){
   const newPage=()=>{if(ops.length)pages.push(ops);ops=["0.6 w 0.55 G"];Y=H-M};
   const head=(sub)=>{text(S.clinic,W/2,Y-14,15,true,"c");text("("+S.doctorFull+")",W/2,Y-30,10,true,"c");text((sub?sub+"  -  ":"")+mon+" "+y,W/2,Y-44,9,false,"c");Y-=62};
   const cols=[[M,26,"S#"],[M+26,58,"DATE"],[M+84,190,"PATIENT'S NAME"],[M+274,170,"PROCEDURE"],[M+444,W-M-(M+444),"CHARGES"]];
-  const RH=15;const SG=signs();const SIG=settings.sigImg?sigJPEG():null;const FOOT=SG[0]?(SIG?84:30):10;
+  const RH=15;const SG=signs();const SIG=settings.sigImg?sigJPEG():null;const FOOT=SG[0]?30:10;
   const row=(cells,o={})=>{
     if(Y-RH<M+FOOT){newPage();Y-=6;if(!o.hdr)row(cols.map(c=>c[2]),{hdr:1})}
     const top=Y,bot=Y-RH;
@@ -498,7 +498,6 @@ function buildPDF(k){
     const h=SG[0].head+" ",x0=W-M-tw(h+SG[0].name,9.5,true)-4;
     pg.push(`BT /F1 9.5 Tf ${x0.toFixed(1)} ${M.toFixed(1)} Td (${enc(h)}) Tj ET`);
     pg.push(`BT /F2 9.5 Tf ${(x0+tw(h,9.5,false)).toFixed(1)} ${M.toFixed(1)} Td (${enc(SG[0].name)}) Tj ET`);
-    if(SIG){const hh=62,ww=hh*SIG.w/SIG.h;pg.push(`q ${ww.toFixed(1)} 0 0 ${hh} ${(W-M-ww-10).toFixed(1)} ${(M+12).toFixed(1)} cm /Im1 Do Q`)}
   });ops=pages.pop()}
   // summary
   newPage();head("SUMMARY");
@@ -580,10 +579,10 @@ function viewStatement(){
   const c=compute(cur);
   return `${exportBar()}<article class="paper">${paperHead(cur,"")}
     <h3>Morning time</h3>${stmtSheet(c.m,c.mInc)}
-    ${signs()[0]?`<div class="prep pmorn"><span>${esc(signs()[0].head)} <strong>${esc(signs()[0].name)}</strong></span>${settings.sigImg?`<img src="${settings.sigImg}" alt="Signature">`:""}</div>`:""}
+    ${signs()[0]?`<div class="prep pmorn"><span>${esc(signs()[0].head)} <strong>${esc(signs()[0].name)}</strong></span></div>`:""}
     <h3 class="evehead">Evening time</h3>${stmtSheet(c.e,c.eInc)}
     <table class="sheet"><tr class="grand"><td>TOTAL</td><td class="r num">${fmt(c.total)}</td></tr></table>
-    ${signs()[0]?`<div class="prep"><span>${esc(signs()[0].head)} <strong>${esc(signs()[0].name)}</strong></span>${settings.sigImg?`<img src="${settings.sigImg}" alt="Signature">`:""}</div>`:""}
+    ${signs()[0]?`<div class="prep"><span>${esc(signs()[0].head)} <strong>${esc(signs()[0].name)}</strong></span></div>`:""}
   </article>`;
 }
 let sigEl=null;
