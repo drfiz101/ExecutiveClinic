@@ -108,6 +108,12 @@ table{border-collapse:collapse;width:100%}
 @media (max-width:560px){.ledger td:last-child,.ledger th:last-child{display:none}.ledger td,.ledger th{padding:7px 5px;font-size:.84rem}.ledger td:first-child,.ledger th:first-child{display:none}.ledger th{white-space:normal}.ledger .yy{display:none}.ledger tbody tr{cursor:pointer}.mobonly{display:inline}}
 .mobonly{display:none}
 .prep{font-size:.9rem;margin-top:10px}
+.signs{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:6px}
+.sbox{border:1.5px solid var(--ink);padding:10px 12px;font-size:.85rem;line-height:1.35;display:flex;flex-direction:column;min-height:150px;break-inside:avoid}
+.sbox .sline{margin-top:auto;padding-top:22px;display:flex;align-items:flex-end;gap:4px}
+.sbox .sline span{flex:1;border-bottom:1px solid var(--ink);height:1em;position:relative}
+.sbox .sline img{position:absolute;left:4px;bottom:-6px;height:58px;width:auto;max-width:100%}
+.sigprev{height:70px;width:auto;background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px}
 .splitline{display:flex;flex-wrap:wrap;gap:10px 24px;align-items:center}
 #printArea{display:none}
 @media print{
@@ -123,6 +129,10 @@ table{border-collapse:collapse;width:100%}
   #printArea .sheet th,#printArea .sheet td{padding:2px 6px}
   #printArea .evehead{break-before:page;padding-top:12mm}
   #printArea .ph{gap:0}
+  #printArea .signs{grid-template-columns:repeat(3,1fr)}
+  #printArea .sum td{padding:4px 10px;font-size:10pt}
+  #printArea .sbox{min-height:125px;font-size:9.5pt}
+  #printArea .cc{font-size:9.5pt}
   .pbreak{break-before:page;height:0}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
@@ -273,7 +283,10 @@ const DEF = {
   mHospital:50, eDoctor:50,
   eShares:[{name:"HOSPITAL",pct:40},{name:"ALMAS",pct:5},{name:"SHAMSHARI",pct:5}],
   tax:15,
-  preparedBy:"Dr Muhammad Faizan Malik",
+  signs:[
+    {head:"Prepared by:",name:"Dr. Muhammad Faizan Malik",title:"Consultant Dental Surgeon at Executive Clinic."},
+    {head:"Checked by:",name:"Dr. Zainab Kabir",title:"Administrator SBDC"},
+    {head:"Checked by:",name:"Dr. Saira Afridi",title:"Deputy Director QEC\nStore In charge"}],
   softCopy:["Mr. Ghulam Noorani, Director Finance, Gandhara University.","Dr. Zainab Noorani, Administrator SBDC.","Mujahid, Accounts Officer, Gandhara University"]
 };
 const MN=["JAN","FEB","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPT","OCT","NOV","DEC"];
@@ -470,7 +483,8 @@ function buildPDF(k){
   };
   // statement
   newPage();head("");shift("MORNING TIME",c.m,c.mInc);
-  const prepPDF=()=>{if(S.preparedBy){Y-=34;text("Prepared by: ",M,Y,10,false);text(S.preparedBy,M+tw("Prepared by: ",10,false),Y,10,true)}};
+  const SG=signs();const SIG=settings.sigImg?sigJPEG():null;
+  const prepPDF=()=>{if(SG[0]){Y-=34;const h=SG[0].head+" ";text(h,M,Y,10,false);text(SG[0].name,M+tw(h,10,false),Y,10,true)}};
   newPage();shift("EVENING TIME",c.e,c.eInc);Y-=10;row(["TOTAL",fmt(c.total)],{span:1,hl:0.86});prepPDF();
   // summary
   newPage();head("SUMMARY");
@@ -487,15 +501,26 @@ function buildPDF(k){
   sline("LAB CHARGES EVENING (SUBTRACT)",c.eLab);sline("TOTAL REMAINING",c.eRem,{bold:1});
   sline(`${D} SHARE ${S.eDoctor}%`,c.eDoc);c.eShares.forEach(s=>sline(`${s.name} SHARE ${s.pct}%`,s.amt));
   Y-=14;sline(`${D} TOTAL SHARE`,c.docTotal,{bold:1});sline(`${S.tax}% TAX`,c.tax);sline(`${D} TOTAL AFTER TAX DEDUCTION`,c.net,{net:1});
+  if(SG.length){
+    Y-=22;const gap=10,n=SG.length,bw=(R-L-gap*(n-1))/n,bh=118,top=Y,bot=Y-bh;
+    ops.push("1.2 w 0 G");
+    SG.forEach((x,i)=>{const bx=L+i*(bw+gap);ops.push(`${bx.toFixed(1)} ${bot.toFixed(1)} ${bw.toFixed(1)} ${bh} re S`);
+      let ty=top-14;const put=(t,b)=>{text(fit(t,9,b,bw-12),bx+6,ty,9,b);ty-=12};
+      put(x.head,false);put(x.name,true);
+      String(x.title||"").split("\n").filter(Boolean).forEach(t=>{const words=t.split(" ");let ln="";words.forEach(w=>{const tr=ln?ln+" "+w:w;if(tw(tr,9,false)>bw-12&&ln){put(ln,false);ln=w}else ln=tr});if(ln)put(ln,false)});
+      text("Signature:",bx+6,bot+12,9,false);line(bx+6+tw("Signature:",9,false)+3,bot+11,bx+bw-8,bot+11);
+      if(i===0&&SIG){const lx=bx+6+tw("Signature:",9,false)+6,mw=bx+bw-8-lx,hh=Math.min(44,mw*SIG.h/SIG.w),ww=hh*SIG.w/SIG.h;ops.push(`q ${ww.toFixed(1)} 0 0 ${hh.toFixed(1)} ${lx.toFixed(1)} ${(bot+6).toFixed(1)} cm /Im1 Do Q`)}});
+    ops.push("0.6 w 0.55 G");Y=bot;
+  }
   if(S.softCopy.length){Y-=30;text("Soft Copy to:",L,Y,10,true);Y-=16;S.softCopy.forEach(t=>{text("-  "+t,L+6,Y,9.5,false);Y-=14})}
-  if(S.preparedBy){Y-=24;text("Prepared by: ",L,Y,10,false);text(S.preparedBy,L+tw("Prepared by: ",10,false),Y,10,true)}
   pages.push(ops);
   // assemble PDF
   const objs=[];const add=s=>{objs.push(s);return objs.length};
   const cat=add(""),pg=add(""),f1=add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"),f2=add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
   const kids=[];
+  const im=SIG?add(`<< /Type /XObject /Subtype /Image /Width ${SIG.w} /Height ${SIG.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${SIG.bin.length} >>\nstream\n${SIG.bin}\nendstream`):0;
   pages.forEach(p=>{const body=p.join("\n");const cs=add(`<< /Length ${body.length} >>\nstream\n${body}\nendstream`);
-    kids.push(add(`<< /Type /Page /Parent ${pg} 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 ${f1} 0 R /F2 ${f2} 0 R >> >> /Contents ${cs} 0 R >>`))});
+    kids.push(add(`<< /Type /Page /Parent ${pg} 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 ${f1} 0 R /F2 ${f2} 0 R >>${im?` /XObject << /Im1 ${im} 0 R >>`:""} >> /Contents ${cs} 0 R >>`))});
   objs[cat-1]=`<< /Type /Catalog /Pages ${pg} 0 R >>`;
   objs[pg-1]=`<< /Type /Pages /Kids [${kids.map(k=>k+" 0 R").join(" ")}] /Count ${kids.length} >>`;
   let out="%PDF-1.4\n";const offs=[];
@@ -503,7 +528,8 @@ function buildPDF(k){
   const xref=out.length;
   out+=`xref\n0 ${objs.length+1}\n0000000000 65535 f \n`+offs.map(o=>String(o).padStart(10,"0")+" 00000 n \n").join("");
   out+=`trailer\n<< /Size ${objs.length+1} /Root ${cat} 0 R >>\nstartxref\n${xref}\n%%EOF`;
-  return out;
+  const bytes=new Uint8Array(out.length);for(let i=0;i<out.length;i++)bytes[i]=out.charCodeAt(i)&255;
+  return bytes;
 }
 function savePDF(){
   const [y,m]=cur.split("-");
@@ -542,9 +568,20 @@ function viewStatement(){
     <h3>Morning time</h3>${stmtSheet(c.m,c.mInc)}
     <h3 class="evehead">Evening time</h3>${stmtSheet(c.e,c.eInc)}
     <table class="sheet"><tr class="grand"><td>TOTAL</td><td class="r num">${fmt(c.total)}</td></tr></table>
-    ${settings.preparedBy?`<div class="prep">Prepared by: <strong>${esc(settings.preparedBy)}</strong></div>`:""}
+    ${signs()[0]?`<div class="prep">${esc(signs()[0].head)} <strong>${esc(signs()[0].name)}</strong></div>`:""}
   </article>`;
 }
+let sigEl=null;
+function loadSig(){const u=settings.sigImg;if(!u){sigEl=null;return}if(sigEl&&sigEl.src===u)return;const im=new Image();im.src=u;sigEl=im}
+function sigJPEG(){ // white-background JPEG of the signature for the PDF
+  if(!sigEl||!sigEl.complete||!sigEl.naturalWidth)return null;
+  const cv=document.createElement("canvas");cv.width=sigEl.naturalWidth;cv.height=sigEl.naturalHeight;
+  const x=cv.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,cv.width,cv.height);x.drawImage(sigEl,0,0);
+  return {bin:atob(cv.toDataURL("image/jpeg",0.92).split(",")[1]),w:cv.width,h:cv.height};
+}
+function signs(){return (settings.signs||[]).filter(x=>x&&(x.head||x.name))}
+function signBoxes(){const sg=signs();if(!sg.length)return "";
+  return `<div class="signs">${sg.map((x,i)=>`<div class="sbox"><div>${esc(x.head)}</div><div><strong>${esc(x.name)}</strong></div>${String(x.title||"").split("\n").filter(Boolean).map(t=>`<div>${esc(t)}</div>`).join("")}<div class="sline">Signature:<span>${i===0&&settings.sigImg?`<img src="${settings.sigImg}" alt="Signature">`:""}</span></div></div>`).join("")}</div>`}
 function summaryRows(c){
   const S=settings, D=S.doctor;
   const row=(l,v,cls)=>`<tr class="${cls||""}"><td>${esc(l)}</td><td>${fmt(v)}</td></tr>`;
@@ -557,8 +594,8 @@ function viewSummary(){
   const c=compute(cur);
   return `${exportBar()}<article class="paper">${paperHead(cur,"Summary")}
    <div class="scroll"><table class="sum">${summaryRows(c)}</table></div>
+   ${signBoxes()}
    ${settings.softCopy.length?`<div class="cc"><strong>Soft copy to:</strong><ul>${settings.softCopy.map(s=>`<li>${esc(s)}</li>`).join("")}</ul></div>`:""}
-   ${settings.preparedBy?`<div class="prep">Prepared by: <strong>${esc(settings.preparedBy)}</strong></div>`:""}
   </article>`;
 }
 function viewYear(){
@@ -587,7 +624,16 @@ function viewShares(){
     <div><button class="btn ghost" id="addShare" ${dis}>Add a person</button></div></section>
   <section class="panel"><div class="panel-head"><h2>Tax and copies</h2></div>
     <div class="exp"><div class="field"><label for="sTax">Tax on doctor's share %</label><input id="sTax" inputmode="decimal" value="${S.tax}" ${dis}></div></div>
-    <div class="field"><label for="sPrep">Prepared by (shown at the bottom of printouts)</label><input id="sPrep" value="${esc(S.preparedBy||"")}" ${dis}></div>
+    <div class="field"><label>Signature boxes on the summary</label></div>
+    <div class="btnrow" style="align-items:center">${S.sigImg?`<img class="sigprev" src="${S.sigImg}" alt="Your signature">`:'<span class="hint">No signature picture yet.</span>'}
+      <label class="btn plain" for="sigFile" style="cursor:pointer">${S.sigImg?"Change signature picture":"Add signature picture"}</label><input type="file" id="sigFile" accept="image/*" hidden ${dis}>
+      ${S.sigImg?'<button class="btn plain" id="sigDel">Remove</button>':""}</div>
+    <p class="hint" style="margin:0">The picture goes on the signature line of the first box. It is kept in your account, not in the app's public code.</p>
+    <div class="exp">${[0,1,2].map(i=>{const x=(S.signs||[])[i]||{};return `<div class="sbox" style="min-height:0;gap:6px;border-color:var(--line);border-radius:8px">
+      <div class="field"><label for="sgH${i}">Heading</label><input id="sgH${i}" value="${esc(x.head||"")}" placeholder="Checked by:" ${dis}></div>
+      <div class="field"><label for="sgN${i}">Name</label><input id="sgN${i}" value="${esc(x.name||"")}" ${dis}></div>
+      <div class="field"><label for="sgT${i}">Post (one per line)</label><textarea id="sgT${i}" rows="2" ${dis}>${esc(x.title||"")}</textarea></div></div>`}).join("")}</div>
+    <p class="hint" style="margin:0">Leave a box empty to remove it. The first box's name also appears under the statement.</p>
     <div class="field"><label for="sCC">Soft copy to (one per line)</label><textarea id="sCC" rows="4" ${dis}>${esc(S.softCopy.join("\n"))}</textarea></div></section>
   ${backupHTML()}<div class="btnrow" style="justify-content:flex-end"><span id="setMsg" class="hint"></span><button class="btn plain" id="resetSet" ${dis}>Restore defaults</button><button class="btn" id="saveSet" ${dis}>Save changes</button></div>`;
 }
@@ -674,14 +720,22 @@ function bind(){
   if(ss){
     const upd=()=>{const ed=+$("#sED").value||0;const sum=ed+[...document.querySelectorAll(".shp")].reduce((a,i)=>a+(+i.value||0),0);$("#eTot").textContent="Evening total "+sum+"%"+(Math.abs(sum-100)>0.001?" — should be 100%":"");$("#eTot").className=Math.abs(sum-100)>0.001?"err":"hint";const mh=+$("#sMH").value;$("#sMD").value=isFinite(mh)?100-mh:""};
     document.querySelectorAll("#view input").forEach(i=>i.addEventListener("input",upd)); upd();
+    const sf=$("#sigFile");
+    if(sf) sf.onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{const im=new Image();im.onload=async()=>{
+      const sc=Math.min(1,600/im.width),cv=document.createElement("canvas");cv.width=Math.round(im.width*sc);cv.height=Math.round(im.height*sc);
+      cv.getContext("2d").drawImage(im,0,0,cv.width,cv.height);const url=cv.toDataURL("image/png");
+      try{const d=Object.assign({},settings,{sigImg:url});await db.doc("config/settings").set(d);settings=d;loadSig();toast("Signature saved");render()}catch(x){writeErr(x)}};im.src=rd.result};rd.readAsDataURL(f)};
+    const sd=$("#sigDel"); if(sd) sd.onclick=async()=>{try{const d=Object.assign({},settings);delete d.sigImg;await db.doc("config/settings").set(d);settings=d;loadSig();toast("Signature removed");render()}catch(x){writeErr(x)}};
+    const readSigns=()=>[0,1,2].map(i=>({head:$("#sgH"+i).value.trim(),name:$("#sgN"+i).value.trim(),title:$("#sgT"+i).value.trim()}));
     const readShares=()=>[...document.querySelectorAll(".sharerow")].map(r=>({name:r.querySelector(".shn").value.trim().toUpperCase(),pct:+r.querySelector(".shp").value||0}));
     $("#addShare").onclick=()=>{settings=Object.assign({},settings,{eShares:readShares().concat([{name:"",pct:0}])});keepDraft();};
     document.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{const s=readShares();s.splice(+b.dataset.rm,1);settings=Object.assign({},settings,{eShares:s});keepDraft()});
-    function keepDraft(){const d={clinic:$("#sClinic").value,doctorFull:$("#sFull").value,doctor:$("#sDoc").value,mHospital:+$("#sMH").value,eDoctor:+$("#sED").value,tax:+$("#sTax").value,preparedBy:$("#sPrep").value,softCopy:$("#sCC").value.split("\n").map(s=>s.trim()).filter(Boolean)};settings=Object.assign({},settings,d);render()}
+    function keepDraft(){const d={clinic:$("#sClinic").value,doctorFull:$("#sFull").value,doctor:$("#sDoc").value,mHospital:+$("#sMH").value,eDoctor:+$("#sED").value,tax:+$("#sTax").value,signs:readSigns(),softCopy:$("#sCC").value.split("\n").map(s=>s.trim()).filter(Boolean)};settings=Object.assign({},settings,d);render()}
     ss.onclick=async()=>{
       const d={clinic:$("#sClinic").value.trim()||DEF.clinic,doctorFull:$("#sFull").value.trim()||DEF.doctorFull,doctor:$("#sDoc").value.trim().toUpperCase()||DEF.doctor,
-        mHospital:+$("#sMH").value,eDoctor:+$("#sED").value,tax:+$("#sTax").value,eShares:readShares().filter(s=>s.name),preparedBy:$("#sPrep").value.trim(),softCopy:$("#sCC").value.split("\n").map(s=>s.trim()).filter(Boolean)};
+        mHospital:+$("#sMH").value,eDoctor:+$("#sED").value,tax:+$("#sTax").value,eShares:readShares().filter(s=>s.name),signs:readSigns().filter(x=>x.head||x.name),softCopy:$("#sCC").value.split("\n").map(s=>s.trim()).filter(Boolean)};
       if(![d.mHospital,d.eDoctor,d.tax].every(n=>isFinite(n)&&n>=0&&n<=100)){$("#setMsg").textContent="Percentages must be between 0 and 100.";$("#setMsg").className="err";return}
+      if(settings.sigImg)d.sigImg=settings.sigImg;
       try{await db.doc("config/settings").set(d);settings=Object.assign({},DEF,d);toast("Shares and names saved");render()}catch(x){writeErr(x)}
     };
     $("#resetSet").onclick=()=>{settings=Object.assign({},DEF);render();$("#setMsg").textContent="Defaults filled in. Press Save to keep them.";};
@@ -745,10 +799,13 @@ function buildWorkbook(){
   const t1=R(); q.push([`${S.doctor} TOTAL SHARE`,n(c.docTotal,`B${rED}+B${rMD}`)]);
   const t2=R(); q.push([`${S.tax}% TAX`,n(c.tax,`B${t1}*${S.tax/100}`)]);
   q.push([`${S.doctor} TOTAL AFTER TAX DEDUCTION`,n(c.net,`B${t1}-B${t2}`)]);
-  q.push([]); q.push([]);
+  q.push([]);
+  const SG=signs();
+  if(SG.length){const lines=SG.map(x=>[x.head,x.name,...String(x.title||"").split("\n").filter(Boolean),"","Signature:______________"]);
+    const mx=Math.max(...lines.map(l=>l.length));for(let i=0;i<mx;i++)q.push(lines.map(l=>l[i]??""));q.push([]);}
+  q.push([]);
   if(S.softCopy.length){q.push(["Soft Copy to:"]);S.softCopy.forEach(l=>q.push(["•  "+l]))}
-  if(S.preparedBy){q.push([]);q.push(["Prepared by: "+S.preparedBy])}
-  const ws2=X.utils.aoa_to_sheet(q); ws2["!cols"]=[{wch:40},{wch:16}];
+  const ws2=X.utils.aoa_to_sheet(q); ws2["!cols"]=[{wch:40},{wch:30},{wch:30}];
   const wb=X.utils.book_new();
   X.utils.book_append_sheet(wb,ws1,"Statement");
   X.utils.book_append_sheet(wb,ws2,"Summary");
@@ -778,7 +835,7 @@ render.tried=true;
     if(!u){uidNow=null;db=null;showLogin(true);syncChip();render();return}
     uidNow=u.uid;showLogin(false);$("#who").textContent=u.email||"";
     db=makeDB(fs,u.uid);downloads=localDownloads;canWrite=true;
-    unsubs.push(db.doc("config/settings").onSnapshot(s=>{settings=Object.assign({},DEF,s.exists?s.data():{});if(tab!=="shares")render()},e=>{}));
+    unsubs.push(db.doc("config/settings").onSnapshot(s=>{settings=Object.assign({},DEF,s.exists?s.data():{});loadSig();if(tab!=="shares")render()},e=>{}));
     unsubs.push(db.collection("months").onSnapshot(snap=>{
       const m={}; snap.docs.forEach(d=>{m[d.id]=d.data()}); months=m; ready=true;
       const ae=document.activeElement;
