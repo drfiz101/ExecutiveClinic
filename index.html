@@ -135,6 +135,13 @@ table{border-collapse:collapse;width:100%}
 .paper{max-width:min(860px,100%)}
 img{max-width:100%}
 @media (max-width:820px){input,select,textarea{font-size:16px!important}}
+.yrsheet td,.yrsheet th{white-space:nowrap}
+.yrsheet a{color:inherit;font-weight:600}
+.yrsheet .bar{height:4px;border-radius:2px;background:var(--accent);opacity:.6;margin-top:3px}
+.yrsheet tr.emptyrow td{color:var(--muted)}
+.yearpaper{max-width:min(1100px,100%)}
+@page yrland{size:A4 landscape;margin:0}
+@media print{#printArea .yearpaper{page:yrland}#printArea .yrsheet .bar{display:none}#printArea .yrsheet a{text-decoration:none}}
 .splitline{display:flex;flex-wrap:wrap;gap:10px 24px;align-items:center}
 #printArea{display:none}
 @media print{
@@ -488,9 +495,9 @@ function viewRecords(){
   ${billsHTML()}`;
 }
 // ---------- PDF of statement + summary (built in the app, works offline) ----------
-function buildPDF(k){
+function buildPDF(k,yr){
   const c=compute(k),S=settings,[y,m]=k.split("-"),mon=MN[+m-1];
-  const W=595,H=842,M=36;
+  const W=yr?842:595,H=yr?595:842,M=36;
   const pages=[];let ops=[],Y=0;
   const enc=t=>String(t??"").replace(/[^\x20-\x7E]/g,"").replace(/[\\()]/g,"\\$&");
   const HW={r:[667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611],rl:[556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500],b:[722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611],bl:[556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500]};
@@ -503,7 +510,7 @@ function buildPDF(k){
   const fill=(x,yy,w,h,g)=>ops.push(`${g} g ${x.toFixed(1)} ${yy.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)} re f 0 g`);
   const newPage=()=>{if(ops.length)pages.push(ops);ops=["0.6 w 0.55 G"];Y=H-M};
   const LOGO=toJPEG(logoEl);
-  const head=(sub)=>{if(LOGO){const tw2=Math.max(tw(S.clinic,15,true),tw("("+S.doctorFull+")",10,true));ops.push(`q 54 0 0 54 ${(W/2-tw2/2-16-54).toFixed(1)} ${(Y-52).toFixed(1)} cm /Im2 Do Q`)}text(S.clinic,W/2,Y-14,15,true,"c");text("("+S.doctorFull+")",W/2,Y-30,10,true,"c");text((sub?sub+"  -  ":"")+mon+" "+y,W/2,Y-45,10.5,true,"c");Y-=62};
+  const head=(sub)=>{if(LOGO){const tw2=Math.max(tw(S.clinic,15,true),tw("("+S.doctorFull+")",10,true),tw((sub?sub+"  -  ":"")+(yr?yr.label:mon+" "+y),10.5,true));ops.push(`q 54 0 0 54 ${(W/2-tw2/2-16-54).toFixed(1)} ${(Y-52).toFixed(1)} cm /Im2 Do Q`)}text(S.clinic,W/2,Y-14,15,true,"c");text("("+S.doctorFull+")",W/2,Y-30,10,true,"c");text((sub?sub+"  -  ":"")+(yr?yr.label:mon+" "+y),W/2,Y-45,10.5,true,"c");Y-=62};
   const cols=[[M,26,"S#"],[M+26,58,"DATE"],[M+84,190,"PATIENT'S NAME"],[M+274,170,"PROCEDURE"],[M+444,W-M-(M+444),"CHARGES"]];
   const RH=15;const SG=signs();const SIG=settings.sigImg?sigJPEG():null;const FOOT=SG[0]?30:10;
   const row=(cells,o={})=>{
@@ -525,6 +532,25 @@ function buildPDF(k){
     if(!rows.length)row(["","","No entries","",""]);
     row(["SUB TOTAL",fmt(total)],{span:1,hl:0.93});
   };
+  if(yr){
+    newPage();head("YEAR SUMMARY");
+    const D=S.doctor,cols2=[["MONTH",112],["MORNING",78],["EVENING",78],["TOTAL INCOME",88],["MATERIAL",72],["LAB",64],[D+" SHARE",96],[S.tax+"% TAX",80],["AFTER TAX",92]];
+    const tot=cols2.reduce((a,c)=>a+c[1],0),sc=(W-2*M)/tot;let xs=[],x=M;cols2.forEach(c=>{xs.push([x,c[1]*sc]);x+=c[1]*sc});
+    const R2=17;
+    const yrow=(cells,o={})=>{
+      if(Y-R2<M+30){newPage();Y-=6;yrow(cols2.map(c=>c[0]),{hdr:1})}
+      const top=Y,bot=Y-R2;if(o.hdr)fill(M,bot,W-2*M,R2,0.9);if(o.hl)fill(M,bot,W-2*M,R2,o.hl);
+      line(M,top,W-M,top);line(M,bot,W-M,bot);xs.forEach(([x])=>line(x,top,x,bot));line(W-M,top,W-M,bot);
+      const sz=o.hdr?7.5:9,b=!!(o.hdr||o.bold);
+      cells.forEach((t,i)=>{const [x,w]=xs[i];if(i===0||o.hdr&&i===0)text(fit(t,sz,b,w-8),x+4,bot+5,sz,b);else text(fit(t,sz,b,w-8),x+w-4,bot+5,sz,b,"r")});
+      Y=bot;
+    };
+    Y-=6;yrow(cols2.map(c=>c[0]),{hdr:1});
+    yr.rows.forEach(({k,c})=>yrow([monthLabel(k).toUpperCase(),fmt(c.mInc),fmt(c.eInc),fmt(c.total),fmt(c.mMat+c.eMat),fmt(c.mLab+c.eLab),fmt(c.docTotal),fmt(c.tax),fmt(c.net)]));
+    const T=yr.T;yrow(["TOTAL",fmt(T.mInc),fmt(T.eInc),fmt(T.total),fmt(T.mat),fmt(T.lab),fmt(T.docTotal),fmt(T.tax),fmt(T.net)],{bold:1,hl:0.86});
+    const SG0=signs()[0];if(SG0){Y-=30;const h=SG0.head+" ";text(h,M,Y,10,false);text(SG0.name,M+tw(h,10,false),Y,10,true)}
+    pages.push(ops);
+  } else {
   // statement
   newPage();head("");shift("MORNING TIME",c.m,c.mInc);
   newPage();head("");shift("EVENING TIME",c.e,c.eInc);Y-=10;row(["TOTAL",fmt(c.total)],{span:1,hl:0.86});
@@ -562,6 +588,7 @@ function buildPDF(k){
   }
   if(S.softCopy.length){Y-=30;text("Soft Copy to:",L,Y,10,true);Y-=16;S.softCopy.forEach(t=>{text("-  "+t,L+6,Y,9.5,false);Y-=14})}
   pages.push(ops);
+  }
   // assemble PDF
   const objs=[];const add=s=>{objs.push(s);return objs.length};
   const cat=add(""),pg=add(""),f1=add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"),f2=add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
@@ -651,7 +678,55 @@ function viewSummary(){
    ${settings.softCopy.length?`<div class="cc"><strong>Soft copy to:</strong><ul>${settings.softCopy.map(s=>`<li>${esc(s)}</li>`).join("")}</ul></div>`:""}
   </article>`;
 }
+let yrFrom=null,yrTo=null;
+const fyStartOf=k=>{const [y,m]=k.split("-").map(Number);return m>=7?y:y-1};
+const fyFrom=y=>y+"-07",fyTo=y=>(y+1)+"-06";
+function rangeKeys(a,b){const out=[];let k=a;for(let i=0;i<240&&k<=b;i++){out.push(k);k=shiftKey(k,1)}return out}
+function yearSetup(){
+  const nowFY=fyStartOf(todayKey);
+  if(!yrFrom){yrFrom=fyFrom(nowFY);yrTo=fyTo(nowFY)}
+  const dataKeys=Object.keys(months).filter(k=>recs(k).length).sort();
+  const firstFY=Math.min(nowFY,dataKeys.length?fyStartOf(dataKeys[0]):nowFY,fyStartOf(yrFrom));
+  const lastFY=Math.max(nowFY,fyStartOf(yrTo));
+  const fys=[];for(let y=lastFY;y>=firstFY;y--)fys.push(y);
+  const allMonths=rangeKeys(fyFrom(firstFY),fyTo(lastFY));
+  const isFY=yrFrom.endsWith("-07")&&yrTo===fyTo(+yrFrom.slice(0,4));
+  const fyName=y=>`${y}-${String((y+1)%100).padStart(2,"0")}`;
+  const label=isFY?`FINANCIAL YEAR ${fyName(+yrFrom.slice(0,4))} (${monthLabel(yrFrom).toUpperCase()} - ${monthLabel(yrTo).toUpperCase()})`:(yrFrom===yrTo?monthLabel(yrFrom).toUpperCase():`${monthLabel(yrFrom).toUpperCase()} - ${monthLabel(yrTo).toUpperCase()}`);
+  const rows=rangeKeys(yrFrom,yrTo).map(k=>({k,c:compute(k)}));
+  const T=rows.reduce((a,{c})=>{["mInc","eInc","total","docTotal","tax","net"].forEach(f=>a[f]+=c[f]);a.mat+=c.mMat+c.eMat;a.lab+=c.mLab+c.eLab;return a},{mInc:0,eInc:0,total:0,docTotal:0,tax:0,net:0,mat:0,lab:0});
+  return {fys,allMonths,isFY,fyName,label,rows,T};
+}
+function yearPaper(Y){
+  const max=Math.max(...Y.rows.map(r=>r.c.total),1);
+  return `<article class="paper yearpaper"><div class="ph"><img class="phlogo" src="icons/gu-logo.png" alt="Gandhara University"><div class="phtext"><h2>${esc(settings.clinic)}</h2><div class="sub">(${esc(settings.doctorFull)})</div><div class="mo">YEAR SUMMARY · ${esc(Y.label)}</div></div></div>
+  <div class="scroll"><table class="sheet yrsheet"><thead><tr><th>Month</th><th class="r">Morning</th><th class="r">Evening</th><th class="r">Total income</th><th class="r">Material</th><th class="r">Lab</th><th class="r">${esc(settings.doctor)} share</th><th class="r">${settings.tax}% tax</th><th class="r">After tax</th></tr></thead><tbody>
+  ${Y.rows.map(({k,c})=>`<tr class="${c.count?"":"emptyrow"}"><td><a href="#records" data-open="${k}">${monthLabel(k)}</a><div class="bar" style="width:${(c.total/max*100).toFixed(1)}%"></div></td><td class="r num">${fmt(c.mInc)}</td><td class="r num">${fmt(c.eInc)}</td><td class="r num">${fmt(c.total)}</td><td class="r num">${fmt(c.mMat+c.eMat)}</td><td class="r num">${fmt(c.mLab+c.eLab)}</td><td class="r num">${fmt(c.docTotal)}</td><td class="r num">${fmt(c.tax)}</td><td class="r num"><strong>${fmt(c.net)}</strong></td></tr>`).join("")}
+  <tr class="grand"><td>TOTAL (${Y.rows.length} months)</td><td class="r num">${fmt(Y.T.mInc)}</td><td class="r num">${fmt(Y.T.eInc)}</td><td class="r num">${fmt(Y.T.total)}</td><td class="r num">${fmt(Y.T.mat)}</td><td class="r num">${fmt(Y.T.lab)}</td><td class="r num">${fmt(Y.T.docTotal)}</td><td class="r num">${fmt(Y.T.tax)}</td><td class="r num">${fmt(Y.T.net)}</td></tr>
+  </tbody></table></div>
+  ${signs()[0]?`<div class="prep"><span>${esc(signs()[0].head)} <strong>${esc(signs()[0].name)}</strong></span></div>`:""}
+  </article>`;
+}
 function viewYear(){
+  const Y=yearSetup();
+  const opt=(v,t,sel)=>`<option value="${v}" ${sel?"selected":""}>${t}</option>`;
+  return `<section class="panel"><div class="panel-head"><h2>Choose the period</h2><span class="hint">Financial year runs 1 July to 30 June</span></div>
+   <div class="exp">
+    <div class="field"><label for="fySel">Financial year</label><select id="fySel">${Y.fys.map(y=>opt(y,`${Y.fyName(y)} (July ${y} – June ${y+1})`,Y.isFY&&+yrFrom.slice(0,4)===y)).join("")}${Y.isFY?"":opt("custom","Custom months",true)}</select></div>
+    <div class="field"><label for="yrFromSel">From</label><select id="yrFromSel">${Y.allMonths.map(k=>opt(k,monthLabel(k),k===yrFrom)).join("")}</select></div>
+    <div class="field"><label for="yrToSel">To</label><select id="yrToSel">${Y.allMonths.map(k=>opt(k,monthLabel(k),k===yrTo)).join("")}</select></div>
+   </div></section>
+  <div class="btnrow" style="justify-content:flex-end"><button class="btn plain" id="yrPrint">Print</button><button class="btn" id="yrPdf">Save PDF</button></div>
+  ${yearPaper(Y)}`;
+}
+function yearPDF(){const Y=yearSetup();try{saveFile(`Year summary ${Y.label.replace(/[()]/g,"")}.pdf`,buildPDF(yrFrom,{label:Y.label,rows:Y.rows,T:Y.T}),"application/pdf")}catch(e){toast("Could not make the PDF.")}}
+function yearPrint(){
+  if(/Android|iPhone|iPad/i.test(navigator.userAgent))return yearPDF();
+  const area=$("#printArea");area.innerHTML=yearPaper(yearSetup());document.body.classList.add("printing");
+  const done=()=>{document.body.classList.remove("printing");area.innerHTML="";window.removeEventListener("afterprint",done)};
+  window.addEventListener("afterprint",done);try{window.print()}catch(e){done();toast("Printing is not available here. Use Save PDF.")}
+}
+function viewYearOld(){
   const keys=Object.keys(months).filter(k=>recs(k).length).sort();
   if(!keys.length) return `<div class="empty">No months recorded yet.</div>`;
   const rows=keys.map(k=>({k,c:compute(k)}));
@@ -810,6 +885,12 @@ function bind(){
     };
   });
   document.querySelectorAll("[data-open]").forEach(a=>a.onclick=()=>{cur=a.dataset.open});
+  const fy=$("#fySel");if(fy){
+    fy.onchange=()=>{if(fy.value==="custom")return;const y=+fy.value;yrFrom=fyFrom(y);yrTo=fyTo(y);render()};
+    $("#yrFromSel").onchange=e=>{yrFrom=e.target.value;if(yrTo<yrFrom)yrTo=yrFrom;render()};
+    $("#yrToSel").onchange=e=>{yrTo=e.target.value;if(yrTo<yrFrom)yrFrom=yrTo;render()};
+    $("#yrPrint").onclick=yearPrint;$("#yrPdf").onclick=yearPDF;
+  }
   const cs=$("#copySum"); if(cs) cs.onclick=copySummary;
   const dx=$("#dlX"); if(dx) dx.onclick=downloadExcel;
   const pb=$("#pdfBtn"); if(pb) pb.onclick=savePDF;
