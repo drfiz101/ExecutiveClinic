@@ -1,4 +1,5 @@
 {
+  "id": "./executive-clinic-ledger",
   "name": "Executive Clinic Ledger",
   "short_name": "Executive Clinic Ledger",
   "description": "Patient records, monthly statement and share summary for Executive Clinic",
@@ -9,7 +10,17 @@
   "background_color": "#f3f6f6",
   "theme_color": "#0d6b67",
   "icons": [
-    { "src": "icons/gu-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "icons/gu-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    {
+      "src": "icons/gu-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/gu-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ]
 }
