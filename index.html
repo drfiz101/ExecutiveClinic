@@ -431,6 +431,80 @@ function viewRecords(){
   <section class="panel"><div class="panel-head"><span class="chip evening">Evening time</span><span class="num">${rs(c.eInc)}</span></div>${shiftTable(c.e,"Evening","evening",c.eInc)}</section>
   ${expensesHTML(cur,c)}`;
 }
+// ---------- PDF of statement + summary (built in the app, works offline) ----------
+function buildPDF(k){
+  const c=compute(k),S=settings,[y,m]=k.split("-"),mon=MN[+m-1];
+  const W=595,H=842,M=36;
+  const pages=[];let ops=[],Y=0;
+  const enc=t=>String(t??"").replace(/[^\x20-\x7E]/g,"").replace(/[\\()]/g,"\\$&");
+  const cw=(ch,b)=>{if(/[0-9]/.test(ch))return 556;if(" ,.:/-".includes(ch))return ch===" "?278:ch==="-"?333:278;if(/[A-Z]/.test(ch))return b?722:667;if(/[a-z]/.test(ch))return b?580:520;return 600};
+  const tw=(t,s,b)=>[...String(t)].reduce((a,ch)=>a+cw(ch,b),0)*s/1000;
+  const fit=(t,s,b,max)=>{t=String(t??"");while(t.length>1&&tw(t,s,b)>max)t=t.slice(0,-1);return t};
+  const text=(t,x,yy,s,b,align)=>{t=enc(t);let X=x;if(align==="r")X=x-tw(t,s,b);if(align==="c")X=x-tw(t,s,b)/2;ops.push(`BT /${b?"F2":"F1"} ${s} Tf ${X.toFixed(1)} ${yy.toFixed(1)} Td (${t}) Tj ET`)};
+  const line=(x1,y1,x2,y2)=>ops.push(`${x1.toFixed(1)} ${y1.toFixed(1)} m ${x2.toFixed(1)} ${y2.toFixed(1)} l S`);
+  const fill=(x,yy,w,h,g)=>ops.push(`${g} g ${x.toFixed(1)} ${yy.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)} re f 0 g`);
+  const newPage=()=>{if(ops.length)pages.push(ops);ops=["0.6 w 0.55 G"];Y=H-M};
+  const head=(sub)=>{text(S.clinic,W/2,Y-14,15,true,"c");text("("+S.doctorFull+")",W/2,Y-30,10,true,"c");text((sub?sub+"  -  ":"")+mon+" "+y,W/2,Y-44,9,false,"c");Y-=62};
+  const cols=[[M,26,"S#"],[M+26,58,"DATE"],[M+84,190,"PATIENT'S NAME"],[M+274,170,"PROCEDURE"],[M+444,W-M-(M+444),"CHARGES"]];
+  const RH=15;
+  const row=(cells,o={})=>{
+    if(Y-RH<M+10){newPage();Y-=6;if(!o.hdr)row(cols.map(c=>c[2]),{hdr:1})}
+    const top=Y,bot=Y-RH;
+    if(o.hdr)fill(M,bot,W-2*M,RH,0.9);if(o.hl)fill(M,bot,W-2*M,RH,o.hl);
+    line(M,top,W-M,top);line(M,bot,W-M,bot);
+    if(!o.span){cols.forEach(([x])=>line(x,top,x,bot));}else{line(M,top,M,bot);line(cols[4][0],top,cols[4][0],bot)}
+    line(W-M,top,W-M,bot);
+    const s=o.hdr?7.5:9,b=!!(o.hdr||o.bold);
+    if(o.span){text(cells[0],cols[4][0]-6,bot+4.5,s,true,"r");text(cells[1],W-M-5,bot+4.5,s,true,"r")}
+    else cells.forEach((t,i)=>{const [x,w]=cols[i];if(i===4)text(t,x+w-5,bot+4.5,s,b,"r");else text(fit(t,s,b,w-8),x+4,bot+4.5,s,b)});
+    Y=bot;
+  };
+  const shift=(title,rows,total)=>{
+    text(title,M,Y-10,10,true);Y-=16;
+    row(cols.map(c=>c[2]),{hdr:1});
+    rows.forEach((r,i)=>row([i+1,ddmmyy(r.date),r.patient,r.procedure,fmt(r.charges)]));
+    if(!rows.length)row(["","","No entries","",""]);
+    row(["SUB TOTAL",fmt(total)],{span:1,hl:0.93});
+  };
+  // statement
+  newPage();head("");shift("MORNING TIME",c.m,c.mInc);
+  newPage();shift("EVENING TIME",c.e,c.eInc);Y-=10;row(["TOTAL",fmt(c.total)],{span:1,hl:0.86});
+  // summary
+  newPage();head("SUMMARY");
+  const L=M+20,R=W-M-20,SR=19;
+  const sline=(lbl,val,o={})=>{const top=Y,bot=Y-SR;if(o.sec)fill(L,bot,R-L,SR,0.9);if(o.net)fill(L,bot,R-L,SR,0.86);
+    line(L,bot,R,bot);text(fit(lbl,10,!!(o.bold||o.sec||o.net),R-L-110),L+6,bot+6,o.net?10.5:10,!!(o.bold||o.sec||o.net));if(val!=null)text(fmt(val),R-6,bot+6,o.net?10.5:10,!!(o.bold||o.net),"r");Y=bot};
+  const D=S.doctor;
+  sline("MORNING TIME",null,{sec:1});sline("TOTAL INCOME",c.mInc,{bold:1});
+  sline(c.matSplit?`MATERIAL (SUBTRACT) ${Math.round(c.mPct*10)/10}% of ${fmt(c.matTotal)}`:"MATERIAL (SUBTRACT)",c.mMat);
+  sline("LAB CHARGES (SUBTRACT)",c.mLab);sline("TOTAL REMAINING",c.mRem,{bold:1});
+  sline(`HOSPITAL SHARE ${S.mHospital}%`,c.mHosp);sline(`${D} SHARE ${100-S.mHospital}%`,c.mDoc);
+  Y-=8;sline("EVENING TIME",null,{sec:1});sline("TOTAL INCOME",c.eInc,{bold:1});
+  if(c.eMat||c.matSplit)sline(c.matSplit?`MATERIAL (SUBTRACT) ${Math.round(c.ePct*10)/10}% of ${fmt(c.matTotal)}`:"MATERIAL (SUBTRACT)",c.eMat);
+  sline("LAB CHARGES EVENING (SUBTRACT)",c.eLab);sline("TOTAL REMAINING",c.eRem,{bold:1});
+  sline(`${D} SHARE ${S.eDoctor}%`,c.eDoc);c.eShares.forEach(s=>sline(`${s.name} SHARE ${s.pct}%`,s.amt));
+  Y-=14;sline(`${D} TOTAL SHARE`,c.docTotal,{bold:1});sline(`${S.tax}% TAX`,c.tax);sline(`${D} TOTAL AFTER TAX DEDUCTION`,c.net,{net:1});
+  if(S.softCopy.length){Y-=30;text("Soft Copy to:",L,Y,10,true);Y-=16;S.softCopy.forEach(t=>{text("-  "+t,L+6,Y,9.5,false);Y-=14})}
+  pages.push(ops);
+  // assemble PDF
+  const objs=[];const add=s=>{objs.push(s);return objs.length};
+  const cat=add(""),pg=add(""),f1=add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"),f2=add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
+  const kids=[];
+  pages.forEach(p=>{const body=p.join("\n");const cs=add(`<< /Length ${body.length} >>\nstream\n${body}\nendstream`);
+    kids.push(add(`<< /Type /Page /Parent ${pg} 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 ${f1} 0 R /F2 ${f2} 0 R >> >> /Contents ${cs} 0 R >>`))});
+  objs[cat-1]=`<< /Type /Catalog /Pages ${pg} 0 R >>`;
+  objs[pg-1]=`<< /Type /Pages /Kids [${kids.map(k=>k+" 0 R").join(" ")}] /Count ${kids.length} >>`;
+  let out="%PDF-1.4\n";const offs=[];
+  objs.forEach((o,i)=>{offs.push(out.length);out+=`${i+1} 0 obj\n${o}\nendobj\n`});
+  const xref=out.length;
+  out+=`xref\n0 ${objs.length+1}\n0000000000 65535 f \n`+offs.map(o=>String(o).padStart(10,"0")+" 00000 n \n").join("");
+  out+=`trailer\n<< /Size ${objs.length+1} /Root ${cat} 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return out;
+}
+function savePDF(){
+  const [y,m]=cur.split("-");
+  try{saveFile(`Statement ${MN[+m-1]} ${y}.pdf`,buildPDF(cur),"application/pdf")}catch(e){toast("Could not make the PDF.")}
+}
 function doPrint(both){
   const tmp=document.createElement("div");
   tmp.innerHTML=both?viewStatement()+viewSummary():(tab==="summary"?viewSummary():viewStatement());
@@ -439,13 +513,13 @@ function doPrint(both){
   document.body.classList.add("printing");
   const done=()=>{document.body.classList.remove("printing");area.innerHTML="";window.removeEventListener("afterprint",done)};
   window.addEventListener("afterprint",done);
-  setTimeout(()=>{try{window.print()}catch(e){done();toast("Printing is not available on this device.")}},50);
+  try{window.print()}catch(e){done();toast("Printing is not available here. Use Save PDF.")}
 }
 function exportBar(){
   return `<div class="btnrow" style="justify-content:flex-end">
     <button class="btn plain" id="copySum">Copy summary text</button>
     <button class="btn plain" id="prBoth">Print statement + summary</button>
-    <button class="btn plain" id="prOne">Print this page</button>
+    <button class="btn" id="pdfBtn">Save PDF</button>
     ${downloads?'<button class="btn" id="dlX">Download Excel</button>':""}</div>`;
 }
 function stmtSheet(rows,total){
@@ -586,8 +660,8 @@ function bind(){
   document.querySelectorAll("[data-open]").forEach(a=>a.onclick=()=>{cur=a.dataset.open});
   const cs=$("#copySum"); if(cs) cs.onclick=copySummary;
   const dx=$("#dlX"); if(dx) dx.onclick=downloadExcel;
-  const p1=$("#prOne"); if(p1) p1.onclick=()=>doPrint(false);
-  const p2=$("#prBoth"); if(p2) p2.onclick=()=>doPrint(true);
+  const pb=$("#pdfBtn"); if(pb) pb.onclick=savePDF;
+  const p2=$("#prBoth"); if(p2) p2.onclick=()=>{ if(/Android|iPhone|iPad/i.test(navigator.userAgent)) savePDF(); else doPrint(true); };
   // settings
   const ss=$("#saveSet");
   if(ss){
