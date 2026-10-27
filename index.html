@@ -107,20 +107,21 @@ table{border-collapse:collapse;width:100%}
 .chip.evening{background:var(--evening-soft);color:var(--evening)}
 @media (max-width:560px){.ledger td:last-child,.ledger th:last-child{display:none}.ledger td,.ledger th{padding:7px 5px;font-size:.84rem}.ledger td:first-child,.ledger th:first-child{display:none}.ledger th{white-space:normal}.ledger .yy{display:none}.ledger tbody tr{cursor:pointer}.mobonly{display:inline}}
 .mobonly{display:none}
+.prep{font-size:.9rem;margin-top:10px}
 .splitline{display:flex;flex-wrap:wrap;gap:10px 24px;align-items:center}
 #printArea{display:none}
 @media print{
   :root:root:root{--bg:#fff;--surface:#fff;--paper:#fff;--ink:#000;--muted:#333;--line:#888;--soft:#eee;--accent:#0d6b67;--accent-soft:#e3efee;--danger:#000;color-scheme:light}
-  @page{size:A4;margin:12mm}
+  @page{size:A4;margin:0}
   body.printing>*:not(#printArea){display:none!important}
   body.printing #printArea{display:block}
   body{background:#fff}
-  #printArea .paper{border:0;box-shadow:none;border-radius:0;padding:0;max-width:none;gap:12px}
+  #printArea .paper{border:0;box-shadow:none;border-radius:0;padding:12mm 14mm;max-width:none;gap:12px}
   #printArea .scroll{overflow:visible}
   #printArea tr{break-inside:avoid}
   #printArea .sheet{font-size:10pt}
   #printArea .sheet th,#printArea .sheet td{padding:2px 6px}
-  #printArea .evehead{break-before:page}
+  #printArea .evehead{break-before:page;padding-top:12mm}
   #printArea .ph{gap:0}
   .pbreak{break-before:page;height:0}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -272,6 +273,7 @@ const DEF = {
   mHospital:50, eDoctor:50,
   eShares:[{name:"HOSPITAL",pct:40},{name:"ALMAS",pct:5},{name:"SHAMSHARI",pct:5}],
   tax:15,
+  preparedBy:"Dr Muhammad Faizan Malik",
   softCopy:["Mr. Ghulam Noorani, Director Finance, Gandhara University.","Dr. Zainab Noorani, Administrator SBDC.","Mujahid, Accounts Officer, Gandhara University"]
 };
 const MN=["JAN","FEB","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPT","OCT","NOV","DEC"];
@@ -468,7 +470,8 @@ function buildPDF(k){
   };
   // statement
   newPage();head("");shift("MORNING TIME",c.m,c.mInc);
-  newPage();shift("EVENING TIME",c.e,c.eInc);Y-=10;row(["TOTAL",fmt(c.total)],{span:1,hl:0.86});
+  const prepPDF=()=>{if(S.preparedBy){Y-=34;text("Prepared by: ",M,Y,10,false);text(S.preparedBy,M+tw("Prepared by: ",10,false),Y,10,true)}};
+  newPage();shift("EVENING TIME",c.e,c.eInc);Y-=10;row(["TOTAL",fmt(c.total)],{span:1,hl:0.86});prepPDF();
   // summary
   newPage();head("SUMMARY");
   const L=M+20,R=W-M-20,SR=19;
@@ -485,6 +488,7 @@ function buildPDF(k){
   sline(`${D} SHARE ${S.eDoctor}%`,c.eDoc);c.eShares.forEach(s=>sline(`${s.name} SHARE ${s.pct}%`,s.amt));
   Y-=14;sline(`${D} TOTAL SHARE`,c.docTotal,{bold:1});sline(`${S.tax}% TAX`,c.tax);sline(`${D} TOTAL AFTER TAX DEDUCTION`,c.net,{net:1});
   if(S.softCopy.length){Y-=30;text("Soft Copy to:",L,Y,10,true);Y-=16;S.softCopy.forEach(t=>{text("-  "+t,L+6,Y,9.5,false);Y-=14})}
+  if(S.preparedBy){Y-=24;text("Prepared by: ",L,Y,10,false);text(S.preparedBy,L+tw("Prepared by: ",10,false),Y,10,true)}
   pages.push(ops);
   // assemble PDF
   const objs=[];const add=s=>{objs.push(s);return objs.length};
@@ -538,6 +542,7 @@ function viewStatement(){
     <h3>Morning time</h3>${stmtSheet(c.m,c.mInc)}
     <h3 class="evehead">Evening time</h3>${stmtSheet(c.e,c.eInc)}
     <table class="sheet"><tr class="grand"><td>TOTAL</td><td class="r num">${fmt(c.total)}</td></tr></table>
+    ${settings.preparedBy?`<div class="prep">Prepared by: <strong>${esc(settings.preparedBy)}</strong></div>`:""}
   </article>`;
 }
 function summaryRows(c){
@@ -553,6 +558,7 @@ function viewSummary(){
   return `${exportBar()}<article class="paper">${paperHead(cur,"Summary")}
    <div class="scroll"><table class="sum">${summaryRows(c)}</table></div>
    ${settings.softCopy.length?`<div class="cc"><strong>Soft copy to:</strong><ul>${settings.softCopy.map(s=>`<li>${esc(s)}</li>`).join("")}</ul></div>`:""}
+   ${settings.preparedBy?`<div class="prep">Prepared by: <strong>${esc(settings.preparedBy)}</strong></div>`:""}
   </article>`;
 }
 function viewYear(){
@@ -581,6 +587,7 @@ function viewShares(){
     <div><button class="btn ghost" id="addShare" ${dis}>Add a person</button></div></section>
   <section class="panel"><div class="panel-head"><h2>Tax and copies</h2></div>
     <div class="exp"><div class="field"><label for="sTax">Tax on doctor's share %</label><input id="sTax" inputmode="decimal" value="${S.tax}" ${dis}></div></div>
+    <div class="field"><label for="sPrep">Prepared by (shown at the bottom of printouts)</label><input id="sPrep" value="${esc(S.preparedBy||"")}" ${dis}></div>
     <div class="field"><label for="sCC">Soft copy to (one per line)</label><textarea id="sCC" rows="4" ${dis}>${esc(S.softCopy.join("\n"))}</textarea></div></section>
   ${backupHTML()}<div class="btnrow" style="justify-content:flex-end"><span id="setMsg" class="hint"></span><button class="btn plain" id="resetSet" ${dis}>Restore defaults</button><button class="btn" id="saveSet" ${dis}>Save changes</button></div>`;
 }
@@ -670,10 +677,10 @@ function bind(){
     const readShares=()=>[...document.querySelectorAll(".sharerow")].map(r=>({name:r.querySelector(".shn").value.trim().toUpperCase(),pct:+r.querySelector(".shp").value||0}));
     $("#addShare").onclick=()=>{settings=Object.assign({},settings,{eShares:readShares().concat([{name:"",pct:0}])});keepDraft();};
     document.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{const s=readShares();s.splice(+b.dataset.rm,1);settings=Object.assign({},settings,{eShares:s});keepDraft()});
-    function keepDraft(){const d={clinic:$("#sClinic").value,doctorFull:$("#sFull").value,doctor:$("#sDoc").value,mHospital:+$("#sMH").value,eDoctor:+$("#sED").value,tax:+$("#sTax").value,softCopy:$("#sCC").value.split("\n").map(s=>s.trim()).filter(Boolean)};settings=Object.assign({},settings,d);render()}
+    function keepDraft(){const d={clinic:$("#sClinic").value,doctorFull:$("#sFull").value,doctor:$("#sDoc").value,mHospital:+$("#sMH").value,eDoctor:+$("#sED").value,tax:+$("#sTax").value,preparedBy:$("#sPrep").value,softCopy:$("#sCC").value.split("\n").map(s=>s.trim()).filter(Boolean)};settings=Object.assign({},settings,d);render()}
     ss.onclick=async()=>{
       const d={clinic:$("#sClinic").value.trim()||DEF.clinic,doctorFull:$("#sFull").value.trim()||DEF.doctorFull,doctor:$("#sDoc").value.trim().toUpperCase()||DEF.doctor,
-        mHospital:+$("#sMH").value,eDoctor:+$("#sED").value,tax:+$("#sTax").value,eShares:readShares().filter(s=>s.name),softCopy:$("#sCC").value.split("\n").map(s=>s.trim()).filter(Boolean)};
+        mHospital:+$("#sMH").value,eDoctor:+$("#sED").value,tax:+$("#sTax").value,eShares:readShares().filter(s=>s.name),preparedBy:$("#sPrep").value.trim(),softCopy:$("#sCC").value.split("\n").map(s=>s.trim()).filter(Boolean)};
       if(![d.mHospital,d.eDoctor,d.tax].every(n=>isFinite(n)&&n>=0&&n<=100)){$("#setMsg").textContent="Percentages must be between 0 and 100.";$("#setMsg").className="err";return}
       try{await db.doc("config/settings").set(d);settings=Object.assign({},DEF,d);toast("Shares and names saved");render()}catch(x){writeErr(x)}
     };
@@ -740,6 +747,7 @@ function buildWorkbook(){
   q.push([`${S.doctor} TOTAL AFTER TAX DEDUCTION`,n(c.net,`B${t1}-B${t2}`)]);
   q.push([]); q.push([]);
   if(S.softCopy.length){q.push(["Soft Copy to:"]);S.softCopy.forEach(l=>q.push(["•  "+l]))}
+  if(S.preparedBy){q.push([]);q.push(["Prepared by: "+S.preparedBy])}
   const ws2=X.utils.aoa_to_sheet(q); ws2["!cols"]=[{wch:40},{wch:16}];
   const wb=X.utils.book_new();
   X.utils.book_append_sheet(wb,ws1,"Statement");
