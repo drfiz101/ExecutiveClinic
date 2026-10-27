@@ -49,6 +49,8 @@ button{cursor:pointer}
 
 /* top */
 .top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.brandrow{display:flex;align-items:center;gap:12px;min-width:0}
+.brandlogo{width:52px;height:52px;flex:none}
 .brand{display:flex;flex-direction:column;gap:2px;min-width:0}
 .brand h1{font-size:1.25rem;font-weight:700;letter-spacing:.02em}
 .brand span{color:var(--muted);font-size:.85rem}
@@ -131,7 +133,10 @@ table{border-collapse:collapse;width:100%}
   #printArea .sheet{font-size:10pt}
   #printArea .sheet th,#printArea .sheet td{padding:2px 6px}
   #printArea .evehead{break-before:page;padding-top:12mm}
-  #printArea .ph{gap:0}
+  #printArea .printonly{display:block}
+  #printArea .ph{gap:24px}
+  #printArea .ph .phtext{gap:0}
+  #printArea .ph .phlogo{height:60px;width:60px}
   #printArea .signs{grid-template-columns:repeat(3,1fr)}
   #printArea .sum td{padding:4px 10px;font-size:10pt}
   #printArea .prep.pmorn{display:flex}
@@ -152,7 +157,12 @@ table{border-collapse:collapse;width:100%}
 
 /* paper */
 .paper{background:var(--paper);border:1px solid var(--line);border-radius:4px;box-shadow:0 1px 0 var(--line),0 12px 30px -20px rgba(0,0,0,.35);padding:clamp(18px,4vw,44px);max-width:780px;margin:0 auto;width:100%;display:flex;flex-direction:column;gap:18px}
-.paper .ph{text-align:center;display:flex;flex-direction:column;gap:2px}
+.paper .ph{display:flex;align-items:center;justify-content:center;gap:16px}
+.paper .ph .phtext{text-align:center;display:flex;flex-direction:column;gap:2px;min-width:0}
+.paper .ph .phlogo{height:64px;width:64px;flex:none}
+@media (max-width:560px){.paper .ph{gap:10px}.paper .ph .phlogo{height:46px;width:46px}.paper .ph .phtext h2{font-size:1.1rem}}
+.printonly{display:none}
+.evehead{display:flex;flex-direction:column;gap:12px}
 .paper .ph h2{font-size:1.35rem;letter-spacing:.08em}
 .paper .ph .sub{font-weight:600;letter-spacing:.04em}
 .paper .ph .mo{font-family:var(--f-num);color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
@@ -192,7 +202,8 @@ table{border-collapse:collapse;width:100%}
 .loginwrap{min-height:100%;display:grid;place-items:center;padding-block:40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .logincard{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:12px}
 .logincard h1{font-size:1.3rem}
-.lmark{width:48px;height:48px;border-radius:12px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-size:1.4rem;font-weight:700}
+.lmark{width:84px;height:84px;align-self:center}
+.logincard h1{text-align:center}
 html,body{min-height:100%}
 </style>
 
@@ -201,7 +212,7 @@ html,body{min-height:100%}
 <body>
 <div id="login" class="loginwrap" hidden>
   <form id="loginForm" class="logincard" data-mode="in" autocomplete="on">
-    <div class="lmark" aria-hidden="true">₨</div>
+    <img class="lmark" src="icons/gu-logo.png" alt="Gandhara University">
     <h1>Executive Clinic Ledger</h1>
     <p class="hint" id="lTitle">Sign in</p>
     <div class="field"><label for="lEmail">Email</label><input id="lEmail" type="email" autocomplete="username" required></div>
@@ -214,7 +225,7 @@ html,body{min-height:100%}
 </div>
 <div class="wrap" id="app" hidden>
   <header class="top">
-    <div class="brand"><h1 id="brandTitle">EXECUTIVE CLINIC</h1><span id="brandSub">Dr. Muhammad Faizan Malik · patient records &amp; monthly statement</span></div>
+    <div class="brandrow"><img class="brandlogo" src="icons/gu-logo.png" alt="Gandhara University"><div class="brand"><h1 id="brandTitle">EXECUTIVE CLINIC</h1><span id="brandSub">Dr. Muhammad Faizan Malik · patient records &amp; monthly statement</span></div></div>
     <div class="topright"><span id="sync" class="sync" hidden></span><div class="monthbar">
       <button class="iconbtn" id="prevM" aria-label="Previous month">‹</button>
       <select id="monthSel" aria-label="Month"></select>
@@ -468,7 +479,8 @@ function buildPDF(k){
   const line=(x1,y1,x2,y2)=>ops.push(`${x1.toFixed(1)} ${y1.toFixed(1)} m ${x2.toFixed(1)} ${y2.toFixed(1)} l S`);
   const fill=(x,yy,w,h,g)=>ops.push(`${g} g ${x.toFixed(1)} ${yy.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)} re f 0 g`);
   const newPage=()=>{if(ops.length)pages.push(ops);ops=["0.6 w 0.55 G"];Y=H-M};
-  const head=(sub)=>{text(S.clinic,W/2,Y-14,15,true,"c");text("("+S.doctorFull+")",W/2,Y-30,10,true,"c");text((sub?sub+"  -  ":"")+mon+" "+y,W/2,Y-44,9,false,"c");Y-=62};
+  const LOGO=toJPEG(logoEl);
+  const head=(sub)=>{if(LOGO){const tw2=Math.max(tw(S.clinic,15,true),tw("("+S.doctorFull+")",10,true));ops.push(`q 54 0 0 54 ${(W/2-tw2/2-16-54).toFixed(1)} ${(Y-52).toFixed(1)} cm /Im2 Do Q`)}text(S.clinic,W/2,Y-14,15,true,"c");text("("+S.doctorFull+")",W/2,Y-30,10,true,"c");text((sub?sub+"  -  ":"")+mon+" "+y,W/2,Y-44,9,false,"c");Y-=62};
   const cols=[[M,26,"S#"],[M+26,58,"DATE"],[M+84,190,"PATIENT'S NAME"],[M+274,170,"PROCEDURE"],[M+444,W-M-(M+444),"CHARGES"]];
   const RH=15;const SG=signs();const SIG=settings.sigImg?sigJPEG():null;const FOOT=SG[0]?30:10;
   const row=(cells,o={})=>{
@@ -492,7 +504,7 @@ function buildPDF(k){
   };
   // statement
   newPage();head("");shift("MORNING TIME",c.m,c.mInc);
-  newPage();shift("EVENING TIME",c.e,c.eInc);Y-=10;row(["TOTAL",fmt(c.total)],{span:1,hl:0.86});
+  newPage();head("");shift("EVENING TIME",c.e,c.eInc);Y-=10;row(["TOTAL",fmt(c.total)],{span:1,hl:0.86});
   // "Prepared by" + signature at the foot of every statement page
   if(SG[0]){pages.push(ops);pages.forEach(pg=>{
     const h=SG[0].head+" ",x0=W-M-tw(h+SG[0].name,9.5,true)-4;
@@ -531,9 +543,10 @@ function buildPDF(k){
   const objs=[];const add=s=>{objs.push(s);return objs.length};
   const cat=add(""),pg=add(""),f1=add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"),f2=add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
   const kids=[];
+  const im2=LOGO?add(`<< /Type /XObject /Subtype /Image /Width ${LOGO.w} /Height ${LOGO.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${LOGO.bin.length} >>\nstream\n${LOGO.bin}\nendstream`):0;
   const im=SIG?add(`<< /Type /XObject /Subtype /Image /Width ${SIG.w} /Height ${SIG.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${SIG.bin.length} >>\nstream\n${SIG.bin}\nendstream`):0;
   pages.forEach(p=>{const body=p.join("\n");const cs=add(`<< /Length ${body.length} >>\nstream\n${body}\nendstream`);
-    kids.push(add(`<< /Type /Page /Parent ${pg} 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 ${f1} 0 R /F2 ${f2} 0 R >>${im?` /XObject << /Im1 ${im} 0 R >>`:""} >> /Contents ${cs} 0 R >>`))});
+    kids.push(add(`<< /Type /Page /Parent ${pg} 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 ${f1} 0 R /F2 ${f2} 0 R >>${im||im2?` /XObject << ${im?`/Im1 ${im} 0 R `:""}${im2?`/Im2 ${im2} 0 R`:""} >>`:""} >> /Contents ${cs} 0 R >>`))});
   objs[cat-1]=`<< /Type /Catalog /Pages ${pg} 0 R >>`;
   objs[pg-1]=`<< /Type /Pages /Kids [${kids.map(k=>k+" 0 R").join(" ")}] /Count ${kids.length} >>`;
   let out="%PDF-1.4\n";const offs=[];
@@ -573,24 +586,26 @@ function stmtSheet(rows,total){
 }
 function paperHead(k,title){
   const [y,m]=k.split("-");
-  return `<div class="ph"><h2>${esc(settings.clinic)}</h2><div class="sub">(${esc(settings.doctorFull)})</div><div class="mo">${title?title+" · ":""}${MN[+m-1]} ${y}</div></div>`;
+  return `<div class="ph"><img class="phlogo" src="icons/gu-logo.png" alt="Gandhara University"><div class="phtext"><h2>${esc(settings.clinic)}</h2><div class="sub">(${esc(settings.doctorFull)})</div><div class="mo">${title?title+" · ":""}${MN[+m-1]} ${y}</div></div></div>`;
 }
 function viewStatement(){
   const c=compute(cur);
   return `${exportBar()}<article class="paper">${paperHead(cur,"")}
     <h3>Morning time</h3>${stmtSheet(c.m,c.mInc)}
     ${signs()[0]?`<div class="prep pmorn"><span>${esc(signs()[0].head)} <strong>${esc(signs()[0].name)}</strong></span></div>`:""}
-    <h3 class="evehead">Evening time</h3>${stmtSheet(c.e,c.eInc)}
+    <div class="evehead"><div class="printonly">${paperHead(cur,"")}</div><h3>Evening time</h3></div>${stmtSheet(c.e,c.eInc)}
     <table class="sheet"><tr class="grand"><td>TOTAL</td><td class="r num">${fmt(c.total)}</td></tr></table>
     ${signs()[0]?`<div class="prep"><span>${esc(signs()[0].head)} <strong>${esc(signs()[0].name)}</strong></span></div>`:""}
   </article>`;
 }
 let sigEl=null;
 function loadSig(){const u=settings.sigImg;if(!u){sigEl=null;return}if(sigEl&&sigEl.src===u)return;const im=new Image();im.src=u;sigEl=im}
-function sigJPEG(){ // white-background JPEG of the signature for the PDF
-  if(!sigEl||!sigEl.complete||!sigEl.naturalWidth)return null;
-  const cv=document.createElement("canvas");cv.width=sigEl.naturalWidth;cv.height=sigEl.naturalHeight;
-  const x=cv.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,cv.width,cv.height);x.drawImage(sigEl,0,0);
+const logoEl=new Image();logoEl.src="icons/gu-logo.png";
+function sigJPEG(){return toJPEG(sigEl)}
+function toJPEG(el){ // white-background JPEG of a picture, for the PDF
+  if(!el||!el.complete||!el.naturalWidth)return null;
+  const cv=document.createElement("canvas");cv.width=el.naturalWidth;cv.height=el.naturalHeight;
+  const x=cv.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,cv.width,cv.height);x.drawImage(el,0,0);
   try{const d=x.getImageData(0,0,cv.width,cv.height),px=d.data;for(let i=0;i<px.length;i+=4){if(px[i]>215&&px[i+1]>215&&px[i+2]>215){px[i]=px[i+1]=px[i+2]=255}}x.putImageData(d,0,0)}catch(e){}
   return {bin:atob(cv.toDataURL("image/jpeg",0.92).split(",")[1]),w:cv.width,h:cv.height};
 }
