@@ -332,8 +332,8 @@ html,body{min-height:100%}
     </div></div>
   </header>
   <nav class="tabs" aria-label="Views">
-    <a href="#records" data-tab="records">Records</a>
     <a href="#appointments" data-tab="appointments">Appointments</a>
+    <a href="#records" data-tab="records">Records</a>
     <a href="#statement" data-tab="statement">Statement</a>
     <a href="#summary" data-tab="summary">Summary</a>
     <a href="#year" data-tab="year">Year</a>
@@ -427,7 +427,7 @@ const now=new Date();
 const todayKey=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
 const todayISO=todayKey+"-"+String(now.getDate()).padStart(2,"0");
 let cur=todayKey;
-let tab="records";
+let tab="appointments";
 let editing=null;      // {key,id}
 let shift = now.getHours()<14 ? "morning" : "evening";
 
@@ -1247,10 +1247,12 @@ async function downloadExcel(){
 }
 
 // ---------- routing ----------
-function route(){const h=location.hash.slice(1);tab=["records","appointments","statement","summary","year","shares"].includes(h)?h:"records";render()}
+function route(){const h=location.hash.slice(1);tab=["records","appointments","statement","summary","year","shares"].includes(h)?h:"appointments";render()}
 window.addEventListener("hashchange",route);
 
 // ---------- boot ----------
+// the app always opens on Appointments
+try{if(location.hash!=="#appointments")history.replaceState(null,"","#appointments")}catch(e){}
 route();
 render.tried=true;
 (function boot(){
