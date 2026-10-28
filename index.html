@@ -142,6 +142,31 @@ img{max-width:100%}
 .yearpaper{max-width:min(1100px,100%)}
 @page yrland{size:A4 landscape;margin:0}
 @media print{#printArea .yearpaper{page:yrland}#printArea .yrsheet .bar{display:none}#printArea .yrsheet a{text-decoration:none}}
+#apLists{display:flex;flex-direction:column;gap:12px}
+.apnav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.apnav input{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 10px;min-width:0}
+.weekstrip{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.wday{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 2px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.78rem;color:var(--muted);min-width:0}
+.wday strong{font-size:1.05rem;color:var(--ink)}
+.wday em{font-style:normal;font-size:.72rem;font-weight:700;color:var(--accent);min-height:1em}
+.wday.today{border-color:var(--accent)}
+.wday.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.wday.on strong,.wday.on em{color:var(--accent-ink)}
+.aplist{display:flex;flex-direction:column;gap:10px}
+.apcard{display:grid;grid-template-columns:96px 1fr;gap:12px;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg)}
+.aptime{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.aptime strong{font-family:var(--f-num);font-size:1.05rem}
+.apbody{display:flex;flex-direction:column;gap:6px;min-width:0}
+.apname{font-weight:700}
+.stchip{font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);margin-left:6px;white-space:nowrap}
+.st-done .stchip{background:#dcf1e3;color:#1d7a43}
+.st-cancelled,.st-noshow{opacity:.65}
+.st-cancelled .stchip,.st-noshow .stchip{background:var(--danger-soft);color:var(--danger)}
+.apacts{display:flex;flex-wrap:wrap;gap:6px}
+.apacts .btn{padding:6px 10px;font-size:.82rem;text-decoration:none}
+.apform{display:grid;grid-template-columns:150px 120px 1fr 1fr;gap:10px;align-items:end}
+@media (max-width:860px){.apform{grid-template-columns:1fr 1fr}.apform .wide{grid-column:1/-1}}
+@media (max-width:480px){.apcard{grid-template-columns:1fr;gap:6px}.aptime{flex-direction:row;align-items:center}}
 .splitline{display:flex;flex-wrap:wrap;gap:10px 24px;align-items:center}
 #printArea{display:none}
 @media print{
@@ -257,6 +282,7 @@ html,body{min-height:100%}
   </header>
   <nav class="tabs" aria-label="Views">
     <a href="#records" data-tab="records">Records</a>
+    <a href="#appointments" data-tab="appointments">Appointments</a>
     <a href="#statement" data-tab="statement">Statement</a>
     <a href="#summary" data-tab="summary">Summary</a>
     <a href="#year" data-tab="year">Year</a>
@@ -286,6 +312,9 @@ function makeDB(fs,uid){
         onSnapshot:(n,e)=>ref.onSnapshot(s=>n({exists:s.exists,data:()=>s.data()}),e)
       }},
     collection(){return {onSnapshot:(n,e)=>root.collection("months").onSnapshot({includeMetadataChanges:true},s=>{pending=s.metadata.hasPendingWrites;syncChip();n(s)},e)}},
+    watchAppts:(a,b,n,e)=>root.collection("appts").where("date",">=",a).where("date","<=",b).onSnapshot(s=>n(s.docs.map(d=>Object.assign({id:d.id},d.data()))),e),
+    saveAppt:(id,d)=>id?root.collection("appts").doc(id).set(d,{merge:true}):root.collection("appts").add(d),
+    delAppt:id=>root.collection("appts").doc(id).delete(),
     watchBills:(k,n,e)=>root.collection("bills").where("month","==",k).onSnapshot(s=>n(s.docs.map(d=>Object.assign({id:d.id},d.data()))),e),
     addBill:d=>root.collection("bills").add(d),
     delBill:id=>root.collection("bills").doc(id).delete(),
@@ -451,6 +480,7 @@ function listsHTML(k){
 }
 function formHTML(){
   let r={date:(cur===todayKey?todayISO:cur+"-01"),shift,patient:"",procedure:"",charges:""};
+  if(!editing&&prefill)r=Object.assign(r,prefill);
   if(editing){const x=recs(editing.key).find(v=>v.id===editing.id); if(x) r=x; else editing=null;}
   const dis=canWrite&&ready?"":"disabled";
   return `<section class="panel" aria-labelledby="fh">
@@ -780,12 +810,99 @@ function render(){
   else b.hidden=true;
   const v=$("#view");
   const focusId=document.activeElement&&document.activeElement.id;
-  v.innerHTML = tab==="statement"?viewStatement():tab==="summary"?viewSummary():tab==="year"?viewYear():tab==="shares"?viewShares():viewRecords();
+  v.innerHTML = tab==="statement"?viewStatement():tab==="summary"?viewSummary():tab==="year"?viewYear():tab==="appointments"?viewAppts():tab==="shares"?viewShares():viewRecords();
   v.style.display="flex";v.style.flexDirection="column";v.style.gap="18px";
   bind();
   if(focusId&&document.getElementById(focusId)&&tab!=="records") document.getElementById(focusId).focus();
 }
 
+// ---------- appointments ----------
+let appts=[],apKey=null,apUnsub=null,apDate=todayISO,apEdit=null,apDelArmed=null,prefill=null;
+const DN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const isoAdd=(iso,d)=>{const t=new Date(iso+"T12:00:00");t.setDate(t.getDate()+d);return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0")};
+const weekStart=iso=>{const t=new Date(iso+"T12:00:00");return isoAdd(iso,-((t.getDay()+6)%7))};
+const t12=t=>{if(!t)return"";const [h,m]=t.split(":").map(Number);return `${((h+11)%12)+1}:${String(m).padStart(2,"0")} ${h<12?"AM":"PM"}`};
+const prettyDate=iso=>{const t=new Date(iso+"T12:00:00");return `${DN[t.getDay()]} ${t.getDate()} ${MFULL[t.getMonth()]} ${t.getFullYear()}`};
+function waNum(p){let d=String(p||"").replace(/\D/g,"");if(d.startsWith("0092"))d=d.slice(2);if(d.startsWith("0"))d="92"+d.slice(1);else if(d.length===10&&d.startsWith("3"))d="92"+d;return d.length>=11?d:""}
+function ensureAppts(){
+  if(!db||!db.watchAppts)return;
+  const ws=weekStart(apDate),a=ws.slice(0,8)+"01",b=isoAdd(ws,6).slice(0,8)+"31",key=a+"|"+b;
+  if(apKey===key)return;if(apUnsub){try{apUnsub()}catch(e){}}
+  apKey=key;appts=[];
+  apUnsub=db.watchAppts(a,b,list=>{appts=list;if(tab==="appointments")renderApptsSoft()},()=>{});
+}
+function renderApptsSoft(){const ae=document.activeElement;if(ae&&ae.closest&&ae.closest("#apForm")&&ae.value){const el=document.getElementById("apLists");if(el){el.innerHTML=apListsHTML();bindApptLists()}return}render()}
+function apFormHTML(){
+  const x=apEdit?appts.find(a=>a.id===apEdit):null;if(apEdit&&!x)apEdit=null;
+  const r=x||{date:apDate,time:"",name:"",phone:"",proc:"",note:""};const dis=canWrite&&ready?"":"disabled";
+  return `<section class="panel"><div class="panel-head"><h2>${x?"Edit appointment":"Book an appointment"}</h2><span class="hint">Morning or evening is set from the time</span></div>
+  <form id="apForm" class="apform" autocomplete="off">
+    <div class="field"><label for="aDate">Date</label><input id="aDate" type="date" required value="${esc(r.date)}" ${dis}></div>
+    <div class="field"><label for="aTime">Time</label><input id="aTime" type="time" required value="${esc(r.time)}" ${dis}></div>
+    <div class="field wide"><label for="aName">Patient's name</label><input id="aName" list="dlPat" required placeholder="Full name" value="${esc(r.name)}" ${dis}></div>
+    <div class="field"><label for="aPhone">Phone (WhatsApp)</label><input id="aPhone" type="tel" inputmode="tel" placeholder="03xx xxxxxxx" value="${esc(r.phone)}" ${dis}></div>
+    <div class="field wide"><label for="aProc">Procedure</label><input id="aProc" list="dlProc" placeholder="e.g. RCT, FILLING, CROWN" value="${esc(r.proc)}" ${dis}></div>
+    <div class="field wide"><label for="aNote">Note</label><input id="aNote" placeholder="Optional" value="${esc(r.note||"")}" ${dis}></div>
+    <div class="btnrow">${x?'<button type="button" class="btn plain" id="apCancelEdit">Cancel</button>':""}<button class="btn" type="submit" ${dis}>${x?"Save":"Book"}</button></div>
+  </form><div id="apErr" class="err" hidden></div></section>`;
+}
+function apCard(a){
+  const st=a.status||"booked",sh=(a.time||"")<"14:00"?"morning":"evening",wa=waNum(a.phone);
+  const msg=encodeURIComponent(`Assalam o Alaikum ${a.name}, this is a reminder of your appointment at ${settings.clinic.replace(/\b\w+/g,w=>w[0]+w.slice(1).toLowerCase())} (${settings.doctorFull.replace(/\b\w+/g,w=>w[0]+w.slice(1).toLowerCase())}) on ${prettyDate(a.date)} at ${t12(a.time)}. Please reply to confirm. Thank you.`);
+  const stName={booked:"Booked",done:"Done",cancelled:"Cancelled",noshow:"Didn't come"}[st];
+  return `<div class="apcard st-${st}">
+    <div class="aptime"><strong>${t12(a.time)||"—"}</strong><span class="chip ${sh}">${sh==="morning"?"Morning":"Evening"}</span></div>
+    <div class="apbody"><div class="apname">${esc(a.name)} <span class="stchip">${stName}</span></div>
+      <div class="hint">${[a.proc,a.phone].filter(Boolean).map(esc).join(" · ")}${a.note?` · ${esc(a.note)}`:""}</div>
+      <div class="apacts">
+        ${st!=="done"&&canWrite?`<button class="btn" data-apdone="${a.id}">Done · add charges</button>`:""}
+        ${wa&&st==="booked"?`<a class="btn plain" href="https://wa.me/${wa}?text=${msg}" target="_blank" rel="noopener">WhatsApp reminder</a>`:""}
+        ${a.phone?`<a class="btn plain" href="tel:${esc(String(a.phone).replace(/[^\d+]/g,""))}">Call</a>`:""}
+        ${canWrite?`${st==="booked"?`<button class="btn plain" data-apst="noshow" data-apid="${a.id}">Didn't come</button><button class="btn plain" data-apst="cancelled" data-apid="${a.id}">Cancel</button>`:`<button class="btn plain" data-apst="booked" data-apid="${a.id}">Back to booked</button>`}
+        <button class="btn plain" data-apedit="${a.id}">Edit</button><button class="btn plain" data-apdel="${a.id}" style="color:var(--danger)">${apDelArmed===a.id?"Tap again to delete":"Delete"}</button>`:""}
+      </div></div></div>`;
+}
+function apListsHTML(){
+  const ws=weekStart(apDate),days=[...Array(7)].map((_,i)=>isoAdd(ws,i));
+  const cnt=d=>appts.filter(a=>a.date===d&&(a.status||"booked")!=="cancelled").length;
+  const day=appts.filter(a=>a.date===apDate).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
+  const active=day.filter(a=>(a.status||"booked")!=="cancelled").length;
+  return `<div class="weekstrip">${days.map(d=>{const t=new Date(d+"T12:00:00");return `<button class="wday${d===apDate?" on":""}${d===todayISO?" today":""}" data-apday="${d}"><span>${DN[t.getDay()]}</span><strong>${t.getDate()}</strong><em>${cnt(d)||""}</em></button>`}).join("")}</div>
+  <section class="panel"><div class="panel-head"><h2>${prettyDate(apDate)}</h2><span class="hint">${active} appointment${active===1?"":"s"}</span></div>
+  ${day.length?`<div class="aplist">${day.map(apCard).join("")}</div>`:`<div class="empty">No appointments on this day. Book one below.</div>`}</section>`;
+}
+function viewAppts(){
+  ensureAppts();
+  return `${listsHTML(cur)}<div class="apnav"><button class="iconbtn" id="apPrev" aria-label="Previous week">‹</button>
+    <input type="date" id="apPick" value="${apDate}" aria-label="Choose a day"><button class="iconbtn" id="apNext" aria-label="Next week">›</button>
+    <button class="btn plain" id="apToday">Today</button></div>
+    <div id="apLists">${apListsHTML()}</div>${apFormHTML()}`;
+}
+function bindApptLists(){
+  document.querySelectorAll("[data-apday]").forEach(b=>b.onclick=()=>{apDate=b.dataset.apday;apDelArmed=null;render()});
+  document.querySelectorAll("[data-apst]").forEach(b=>b.onclick=async()=>{try{await db.saveAppt(b.dataset.apid,{status:b.dataset.apst});toast("Updated")}catch(x){writeErr(x)}});
+  document.querySelectorAll("[data-apedit]").forEach(b=>b.onclick=()=>{apEdit=b.dataset.apedit;render();const f=$("#apForm");if(f)f.scrollIntoView({behavior:"smooth"})});
+  document.querySelectorAll("[data-apdel]").forEach(b=>b.onclick=async()=>{const id=b.dataset.apdel;if(apDelArmed!==id){apDelArmed=id;renderApptsSoft();return}
+    try{await db.delAppt(id);apDelArmed=null;if(apEdit===id)apEdit=null;toast("Appointment deleted")}catch(x){writeErr(x)}});
+  document.querySelectorAll("[data-apdone]").forEach(b=>b.onclick=()=>{const a=appts.find(x=>x.id===b.dataset.apdone);if(!a)return;
+    prefill={date:a.date,shift:(a.time||"")<"14:00"?"morning":"evening",patient:(a.name||"").toUpperCase(),procedure:(a.proc||"").toUpperCase(),charges:"",apptId:a.id};
+    shift=prefill.shift;cur=a.date.slice(0,7);editing=null;location.hash="records";setTimeout(()=>{const c=$("#fChg");if(c){c.scrollIntoView({behavior:"smooth",block:"center"});c.focus()}},150)});
+}
+function bindAppts(){
+  if(tab!=="appointments")return;
+  bindApptLists();
+  $("#apPrev").onclick=()=>{apDate=isoAdd(apDate,-7);render()};
+  $("#apNext").onclick=()=>{apDate=isoAdd(apDate,7);render()};
+  $("#apToday").onclick=()=>{apDate=todayISO;render()};
+  $("#apPick").onchange=e=>{if(e.target.value){apDate=e.target.value;render()}};
+  const ce=$("#apCancelEdit");if(ce)ce.onclick=()=>{apEdit=null;render()};
+  const f=$("#apForm");if(!f)return;
+  f.onsubmit=async e=>{e.preventDefault();const err=$("#apErr");err.hidden=true;
+    const d={date:$("#aDate").value,time:$("#aTime").value,name:$("#aName").value.trim().toUpperCase(),phone:$("#aPhone").value.trim(),proc:$("#aProc").value.trim().toUpperCase(),note:$("#aNote").value.trim()};
+    if(!d.date||!d.time||!d.name){err.textContent="Fill in the date, time and patient's name.";err.hidden=false;return}
+    try{if(apEdit){await db.saveAppt(apEdit,d);toast("Appointment saved")}else{d.status="booked";d.at=Date.now();await db.saveAppt(null,d);toast(`Booked ${d.name}, ${t12(d.time)}`)}
+      apEdit=null;apDate=d.date;render()}catch(x){writeErr(x)}};
+}
 // ---------- bill photos (kept in the app, never printed) ----------
 let bills=[],billsKey=null,billsUnsub=null,billsLoading=false,viewBill=null,delArmed=false;
 function ensureBills(){
@@ -832,7 +949,7 @@ function showBill(){
 }
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&viewBill){viewBill=null;showBill()}});
 function bind(){
-  ensureBills();bindBills();
+  ensureBills();bindBills();bindAppts();
   bindBackup();
   const form=$("#recForm");
   if(form){
@@ -858,11 +975,14 @@ function bind(){
           shift=sh;
           if(k!==cur){cur=k}
           toast(`Added ${pat} · ${rs(chg)}`);
+          if(prefill&&prefill.apptId){const aid=prefill.apptId;prefill=null;try{await db.saveAppt(aid,{status:"done",recId:id})}catch(x){}}
+          prefill=null;
         }
         render(); const p=$("#fPat"); if(p) p.focus();
       }catch(x){writeErr(x)}
     };
     const ce=$("#cancelEdit"); if(ce) ce.onclick=()=>{editing=null;render()};
+    if(prefill&&!editing){const fh=$("#fh");if(fh)fh.textContent="Add charges for this appointment";}
   }
   document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{editing={key:cur,id:b.dataset.edit};const r=recs(cur).find(x=>x.id===b.dataset.edit);if(r)shift=r.shift;render();window.scrollTo({top:0,behavior:"smooth"})});
   document.querySelectorAll("[data-row]").forEach(tr=>tr.onclick=e=>{if(!canWrite||window.innerWidth>560||e.target.closest("button"))return;editing={key:cur,id:tr.dataset.row};const r=recs(cur).find(x=>x.id===tr.dataset.row);if(r)shift=r.shift;render();window.scrollTo({top:0,behavior:"smooth"})});
@@ -999,7 +1119,7 @@ async function downloadExcel(){
 }
 
 // ---------- routing ----------
-function route(){const h=location.hash.slice(1);tab=["records","statement","summary","year","shares"].includes(h)?h:"records";render()}
+function route(){const h=location.hash.slice(1);tab=["records","appointments","statement","summary","year","shares"].includes(h)?h:"records";render()}
 window.addEventListener("hashchange",route);
 
 // ---------- boot ----------
@@ -1012,6 +1132,7 @@ render.tried=true;
   fs.enablePersistence({synchronizeTabs:true}).catch(()=>{});
   firebase.auth().onAuthStateChanged(u=>{
     unsubs.forEach(f=>{try{f()}catch(e){}});unsubs=[];months={};ready=false;editing=null;
+    if(apUnsub){try{apUnsub()}catch(e){}}apUnsub=null;apKey=null;appts=[];apEdit=null;
     if(billsUnsub){try{billsUnsub()}catch(e){}}billsUnsub=null;billsKey=null;bills=[];viewBill=null;
     if(!u){uidNow=null;db=null;showLogin(true);syncChip();render();return}
     uidNow=u.uid;showLogin(false);$("#who").textContent=u.email||"";
