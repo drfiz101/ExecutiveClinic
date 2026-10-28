@@ -142,31 +142,65 @@ img{max-width:100%}
 .yearpaper{max-width:min(1100px,100%)}
 @page yrland{size:A4 landscape;margin:0}
 @media print{#printArea .yearpaper{page:yrland}#printArea .yrsheet .bar{display:none}#printArea .yrsheet a{text-decoration:none}}
-#apLists{display:flex;flex-direction:column;gap:12px}
+#apLists{display:flex;flex-direction:column;gap:14px}
 .apnav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .apnav input{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 10px;min-width:0}
 .weekstrip{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
-.wday{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 2px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.78rem;color:var(--muted);min-width:0}
-.wday strong{font-size:1.05rem;color:var(--ink)}
-.wday em{font-style:normal;font-size:.72rem;font-weight:700;color:var(--accent);min-height:1em}
-.wday.today{border-color:var(--accent)}
+.wday{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:9px 2px 8px;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:.74rem;color:var(--muted);min-width:0;transition:transform .12s}
+.wday strong{font-size:1.15rem;color:var(--ink);font-family:var(--f-num)}
+.wday em{font-style:normal;font-size:.62rem;font-weight:700;color:var(--accent);white-space:nowrap}
+.wday.today{border-color:var(--accent);border-width:2px}
 .wday.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .wday.on strong,.wday.on em{color:var(--accent-ink)}
-.aplist{display:flex;flex-direction:column;gap:10px}
-.apcard{display:grid;grid-template-columns:96px 1fr;gap:12px;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg)}
-.aptime{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
-.aptime strong{font-family:var(--f-num);font-size:1.05rem}
+.wday:active{transform:scale(.96)}
+.dayhero{background:linear-gradient(135deg,var(--accent),#0a4f4c);color:#fff;border-radius:16px;padding:18px 20px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.dayhero h2{font-size:1.5rem;margin:2px 0}
+.dhdate{text-transform:uppercase;letter-spacing:.12em;font-size:.72rem;font-weight:700;opacity:.8}
+.dhnext{font-size:.9rem;opacity:.92}
+.dhstats{display:flex;gap:8px}
+.dhstats div{background:rgba(255,255,255,.14);border-radius:12px;padding:8px 12px;display:flex;flex-direction:column;align-items:center;min-width:62px}
+.dhstats strong{font-size:1.3rem;font-family:var(--f-num)}
+.dhstats span{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;opacity:.85}
+.slotbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.tog{display:flex;align-items:center;gap:8px;font-size:.88rem;color:var(--muted);cursor:pointer}
+.tog input{width:18px;height:18px;accent-color:var(--accent)}
+.timeline{gap:0;padding:6px 16px}
+.slot{display:grid;grid-template-columns:76px 1fr;gap:12px;padding:8px 0;border-bottom:1px solid var(--soft);align-items:start}
+.slot:last-child{border-bottom:0}
+.stime{font-family:var(--f-num);font-size:.86rem;font-weight:600;color:var(--ink);padding-top:9px;white-space:nowrap}
+.slot.past .stime{color:var(--muted)}
+.slot.nowslot .stime{color:var(--accent)}
+.slot.nowslot{background:linear-gradient(90deg,var(--accent-soft),transparent 60%)}
+.sbody{display:flex;flex-direction:column;gap:8px;min-width:0}
+.freeslot{border:1.5px dashed var(--line);background:transparent;border-radius:10px;padding:9px 12px;text-align:left;color:var(--muted);font-weight:600;font-size:.86rem;cursor:pointer;width:100%}
+.freeslot span{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--accent-soft);color:var(--accent);margin-right:6px;font-weight:800}
+.freeslot:hover{border-color:var(--accent);color:var(--accent)}
+.slot.past .freeslot{opacity:.55}
+.apcard{display:grid;grid-template-columns:40px 1fr;gap:12px;border-radius:12px;padding:12px;background:var(--surface);border:1px solid var(--line);box-shadow:0 1px 0 var(--line)}
+.apava{width:40px;height:40px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:800;font-size:.9rem}
+.st-done .apava{background:#dcf1e3;color:#1d7a43}
 .apbody{display:flex;flex-direction:column;gap:6px;min-width:0}
-.apname{font-weight:700}
-.stchip{font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);margin-left:6px;white-space:nowrap}
+.apname{font-weight:700;display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.apmeta{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.84rem;color:var(--muted)}
+.stchip{font-size:.64rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
 .st-done .stchip{background:#dcf1e3;color:#1d7a43}
-.st-cancelled,.st-noshow{opacity:.65}
+.st-cancelled,.st-noshow{opacity:.6}
 .st-cancelled .stchip,.st-noshow .stchip{background:var(--danger-soft);color:var(--danger)}
-.apacts{display:flex;flex-wrap:wrap;gap:6px}
-.apacts .btn{padding:6px 10px;font-size:.82rem;text-decoration:none}
-.apform{display:grid;grid-template-columns:150px 120px 1fr 1fr;gap:10px;align-items:end}
-@media (max-width:860px){.apform{grid-template-columns:1fr 1fr}.apform .wide{grid-column:1/-1}}
-@media (max-width:480px){.apcard{grid-template-columns:1fr;gap:6px}.aptime{flex-direction:row;align-items:center}}
+.apacts{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start}
+.btn.sm{padding:6px 11px;font-size:.8rem;text-decoration:none;display:inline-block}
+.btn.wa{background:#1fa855;border-color:#1fa855;color:#fff}
+.apmore{position:relative}
+.apmore summary{list-style:none;cursor:pointer}
+.apmore summary::-webkit-details-marker{display:none}
+.apmenu{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.othertimes{padding-top:10px;display:flex;flex-direction:column;gap:4px}
+.sheetbg{position:fixed;inset:0;background:rgba(8,20,22,.5);z-index:25}
+.sheet{position:fixed;z-index:26;left:50%;transform:translateX(-50%);bottom:0;width:min(560px,100%);max-height:92vh;overflow:auto;background:var(--surface);border-radius:18px 18px 0 0;padding:18px max(18px,env(safe-area-inset-left,0px)) calc(18px + env(safe-area-inset-bottom,0px));box-shadow:0 -10px 40px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:12px}
+@media (min-width:700px){.sheet{bottom:auto;top:50%;transform:translate(-50%,-50%);border-radius:18px}}
+.sheethead{display:flex;justify-content:space-between;align-items:center}
+.apform2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.apform2 .wide{grid-column:1/-1}
+@media (max-width:480px){.slot{grid-template-columns:62px 1fr;gap:8px}.dayhero{padding:16px}.dhstats div{min-width:54px;padding:6px 8px}.apcard{grid-template-columns:32px 1fr;gap:10px;padding:10px}.apava{width:32px;height:32px;font-size:.78rem}}
 .splitline{display:flex;flex-wrap:wrap;gap:10px 24px;align-items:center}
 #printArea{display:none}
 @media print{
@@ -363,6 +397,7 @@ const DEF = {
     {head:"Prepared by:",name:"Dr. Muhammad Faizan Malik",title:"Consultant Dental Surgeon at Executive Clinic."},
     {head:"Checked by:",name:"Dr. Zainab Kabir",title:"Administrator SBDC"},
     {head:"Checked by:",name:"Dr. Saira Afridi",title:"Deputy Director QEC\nStore In charge"}],
+  apStart:"09:30",apEnd:"15:00",apGap:15,
   softCopy:["Mr. Ghulam Noorani, Director Finance, Gandhara University.","Dr. Zainab Noorani, Administrator SBDC.","Mujahid, Accounts Officer, Gandhara University"]
 };
 const MN=["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
@@ -782,6 +817,10 @@ function viewShares(){
     <div><button class="btn ghost" id="addShare" ${dis}>Add a person</button></div></section>
   <section class="panel"><div class="panel-head"><h2>Tax and copies</h2></div>
     <div class="exp"><div class="field"><label for="sTax">Tax on doctor's share %</label><input id="sTax" inputmode="decimal" value="${S.tax}" ${dis}></div></div>
+    <div class="field"><label>Appointment hours</label></div>
+    <div class="exp"><div class="field"><label for="sApS">Day starts</label><input id="sApS" type="time" step="900" value="${esc(S.apStart||"09:30")}" ${dis}></div>
+      <div class="field"><label for="sApE">Day ends</label><input id="sApE" type="time" step="900" value="${esc(S.apEnd||"15:00")}" ${dis}></div>
+      <div class="field"><label for="sApG">Gap between slots (minutes)</label><input id="sApG" inputmode="numeric" value="${esc(S.apGap||15)}" ${dis}></div></div>
     <div class="field"><label>Signature boxes on the summary</label></div>
     <div class="btnrow" style="align-items:center">${S.sigImg?`<img class="sigprev" src="${S.sigImg}" alt="Your signature">`:'<span class="hint">No signature picture yet.</span>'}
       <label class="btn plain" for="sigFile" style="cursor:pointer">${S.sigImg?"Change signature picture":"Add signature picture"}</label><input type="file" id="sigFile" accept="image/*" hidden ${dis}>
@@ -831,78 +870,121 @@ function ensureAppts(){
   apKey=key;appts=[];
   apUnsub=db.watchAppts(a,b,list=>{appts=list;if(tab==="appointments")renderApptsSoft()},()=>{});
 }
-function renderApptsSoft(){const ae=document.activeElement;if(ae&&ae.closest&&ae.closest("#apForm")&&ae.value){const el=document.getElementById("apLists");if(el){el.innerHTML=apListsHTML();bindApptLists()}return}render()}
-function apFormHTML(){
-  const x=apEdit?appts.find(a=>a.id===apEdit):null;if(apEdit&&!x)apEdit=null;
-  const r=x||{date:apDate,time:"",name:"",phone:"",proc:"",note:""};const dis=canWrite&&ready?"":"disabled";
-  return `<section class="panel"><div class="panel-head"><h2>${x?"Edit appointment":"Book an appointment"}</h2><span class="hint">Morning or evening is set from the time</span></div>
-  <form id="apForm" class="apform" autocomplete="off">
+function renderApptsSoft(){const el=document.getElementById("apLists");if(el){el.innerHTML=apListsHTML();bindApptLists()}else render()}
+const toMin=t=>{const [h,m]=String(t||"0:0").split(":").map(Number);return h*60+(m||0)};
+const fromMin=n=>String(Math.floor(n/60)).padStart(2,"0")+":"+String(n%60).padStart(2,"0");
+function slotTimes(){const a=toMin(settings.apStart||"09:30"),b=toMin(settings.apEnd||"15:00"),g=+settings.apGap||15,out=[];for(let t=a;t+g<=b;t+=g)out.push(fromMin(t));return out}
+let apSheet=null,apShowFree=true;
+function apSheetHTML(){
+  if(!apSheet)return "";
+  const x=apSheet.id?appts.find(a=>a.id===apSheet.id):null;
+  const r=x||{date:apSheet.date||apDate,time:apSheet.time||"",name:"",phone:"",proc:"",note:""};
+  const slots=slotTimes(),onGrid=!r.time||slots.includes(r.time),dis=canWrite&&ready?"":"disabled";
+  const taken=new Set(appts.filter(a=>a.date===r.date&&a.id!==(x&&x.id)&&(a.status||"booked")!=="cancelled").map(a=>a.time));
+  return `<div class="sheetbg" id="apSheetBg"></div><div class="sheet" role="dialog" aria-label="${x?"Edit appointment":"Book appointment"}">
+   <div class="sheethead"><h2>${x?"Edit appointment":"Book appointment"}</h2><button class="iconbtn" id="apClose" aria-label="Close">✕</button></div>
+   <form id="apForm" autocomplete="off" class="apform2">
     <div class="field"><label for="aDate">Date</label><input id="aDate" type="date" required value="${esc(r.date)}" ${dis}></div>
-    <div class="field"><label for="aTime">Time</label><input id="aTime" type="time" required value="${esc(r.time)}" ${dis}></div>
+    <div class="field"><label for="aTimeSel">Time</label><select id="aTimeSel" ${dis}>
+      ${slots.map(t=>`<option value="${t}" ${t===r.time?"selected":""} ${taken.has(t)?"":""}>${t12(t)}${taken.has(t)?"  · booked":""}</option>`).join("")}
+      <option value="other" ${onGrid?"":"selected"}>Other time…</option></select>
+      <input id="aTime" type="time" value="${esc(r.time)}" ${onGrid?"hidden":""} ${dis}></div>
     <div class="field wide"><label for="aName">Patient's name</label><input id="aName" list="dlPat" required placeholder="Full name" value="${esc(r.name)}" ${dis}></div>
     <div class="field"><label for="aPhone">Phone (WhatsApp)</label><input id="aPhone" type="tel" inputmode="tel" placeholder="03xx xxxxxxx" value="${esc(r.phone)}" ${dis}></div>
-    <div class="field wide"><label for="aProc">Procedure</label><input id="aProc" list="dlProc" placeholder="e.g. RCT, FILLING, CROWN" value="${esc(r.proc)}" ${dis}></div>
+    <div class="field"><label for="aProc">Procedure</label><input id="aProc" list="dlProc" placeholder="RCT, FILLING…" value="${esc(r.proc)}" ${dis}></div>
     <div class="field wide"><label for="aNote">Note</label><input id="aNote" placeholder="Optional" value="${esc(r.note||"")}" ${dis}></div>
-    <div class="btnrow">${x?'<button type="button" class="btn plain" id="apCancelEdit">Cancel</button>':""}<button class="btn" type="submit" ${dis}>${x?"Save":"Book"}</button></div>
-  </form><div id="apErr" class="err" hidden></div></section>`;
+    <div id="apErr" class="err wide" hidden></div>
+    <div class="btnrow wide" style="justify-content:flex-end"><button type="button" class="btn plain" id="apCancel">Cancel</button><button class="btn" type="submit" ${dis}>${x?"Save changes":"Book appointment"}</button></div>
+   </form></div>`;
 }
-function apCard(a){
-  const st=a.status||"booked",sh=(a.time||"")<"14:00"?"morning":"evening",wa=waNum(a.phone);
+function apCard(a,compact){
+  const st=a.status||"booked",wa=waNum(a.phone);
   const msg=encodeURIComponent(`Assalam o Alaikum ${a.name}, this is a reminder of your appointment at ${settings.clinic.replace(/\b\w+/g,w=>w[0]+w.slice(1).toLowerCase())} (${settings.doctorFull.replace(/\b\w+/g,w=>w[0]+w.slice(1).toLowerCase())}) on ${prettyDate(a.date)} at ${t12(a.time)}. Please reply to confirm. Thank you.`);
   const stName={booked:"Booked",done:"Done",cancelled:"Cancelled",noshow:"Didn't come"}[st];
+  const ini=String(a.name||"?").trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("");
   return `<div class="apcard st-${st}">
-    <div class="aptime"><strong>${t12(a.time)||"—"}</strong><span class="chip ${sh}">${sh==="morning"?"Morning":"Evening"}</span></div>
+    <div class="apava" aria-hidden="true">${esc(ini)}</div>
     <div class="apbody"><div class="apname">${esc(a.name)} <span class="stchip">${stName}</span></div>
-      <div class="hint">${[a.proc,a.phone].filter(Boolean).map(esc).join(" · ")}${a.note?` · ${esc(a.note)}`:""}</div>
+      <div class="apmeta">${a.proc?`<span>${esc(a.proc)}</span>`:""}${a.phone?`<span>${esc(a.phone)}</span>`:""}${a.note?`<span>${esc(a.note)}</span>`:""}${compact?`<span>${t12(a.time)}</span>`:""}</div>
       <div class="apacts">
-        ${st!=="done"&&canWrite?`<button class="btn" data-apdone="${a.id}">Done · add charges</button>`:""}
-        ${wa&&st==="booked"?`<a class="btn plain" href="https://wa.me/${wa}?text=${msg}" target="_blank" rel="noopener">WhatsApp reminder</a>`:""}
-        ${a.phone?`<a class="btn plain" href="tel:${esc(String(a.phone).replace(/[^\d+]/g,""))}">Call</a>`:""}
-        ${canWrite?`${st==="booked"?`<button class="btn plain" data-apst="noshow" data-apid="${a.id}">Didn't come</button><button class="btn plain" data-apst="cancelled" data-apid="${a.id}">Cancel</button>`:`<button class="btn plain" data-apst="booked" data-apid="${a.id}">Back to booked</button>`}
-        <button class="btn plain" data-apedit="${a.id}">Edit</button><button class="btn plain" data-apdel="${a.id}" style="color:var(--danger)">${apDelArmed===a.id?"Tap again to delete":"Delete"}</button>`:""}
+        ${st!=="done"&&canWrite?`<button class="btn sm" data-apdone="${a.id}">Done · add charges</button>`:""}
+        ${wa&&st==="booked"?`<a class="btn sm wa" href="https://wa.me/${wa}?text=${msg}" target="_blank" rel="noopener">WhatsApp</a>`:""}
+        ${a.phone?`<a class="btn sm plain" href="tel:${esc(String(a.phone).replace(/[^\d+]/g,""))}">Call</a>`:""}
+        ${canWrite?`<details class="apmore"><summary class="btn sm plain">More</summary><div class="apmenu">
+          ${st==="booked"?`<button class="btn sm plain" data-apst="noshow" data-apid="${a.id}">Didn't come</button><button class="btn sm plain" data-apst="cancelled" data-apid="${a.id}">Cancel</button>`:`<button class="btn sm plain" data-apst="booked" data-apid="${a.id}">Back to booked</button>`}
+          <button class="btn sm plain" data-apedit="${a.id}">Edit</button><button class="btn sm plain" data-apdel="${a.id}" style="color:var(--danger)">${apDelArmed===a.id?"Tap again to delete":"Delete"}</button></div></details>`:""}
       </div></div></div>`;
 }
 function apListsHTML(){
   const ws=weekStart(apDate),days=[...Array(7)].map((_,i)=>isoAdd(ws,i));
-  const cnt=d=>appts.filter(a=>a.date===d&&(a.status||"booked")!=="cancelled").length;
+  const live=a=>(a.status||"booked")!=="cancelled";
+  const cnt=d=>appts.filter(a=>a.date===d&&live(a)).length;
   const day=appts.filter(a=>a.date===apDate).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
-  const active=day.filter(a=>(a.status||"booked")!=="cancelled").length;
-  return `<div class="weekstrip">${days.map(d=>{const t=new Date(d+"T12:00:00");return `<button class="wday${d===apDate?" on":""}${d===todayISO?" today":""}" data-apday="${d}"><span>${DN[t.getDay()]}</span><strong>${t.getDate()}</strong><em>${cnt(d)||""}</em></button>`}).join("")}</div>
-  <section class="panel"><div class="panel-head"><h2>${prettyDate(apDate)}</h2><span class="hint">${active} appointment${active===1?"":"s"}</span></div>
-  ${day.length?`<div class="aplist">${day.map(apCard).join("")}</div>`:`<div class="empty">No appointments on this day. Book one below.</div>`}</section>`;
+  const slots=slotTimes(),onGrid=new Set(slots);
+  const booked=day.filter(a=>live(a)&&onGrid.has(a.time)).map(a=>a.time),free=slots.filter(t=>!booked.includes(t)).length;
+  const now=new Date(),nowMin=now.getHours()*60+now.getMinutes(),isToday=apDate===todayISO,isPast=apDate<todayISO;
+  const next=isToday?day.find(a=>(a.status||"booked")==="booked"&&toMin(a.time)>=nowMin):null;
+  const done=day.filter(a=>a.status==="done").length;
+  const t=new Date(apDate+"T12:00:00");
+  const rows=slots.map(tm=>{const here=day.filter(a=>a.time===tm);const past=isPast||(isToday&&toMin(tm)+(+settings.apGap||15)<=nowMin);
+    if(!here.length&&!apShowFree)return "";
+    return `<div class="slot${past?" past":""}${isToday&&!past&&toMin(tm)<=nowMin?" nowslot":""}"><div class="stime">${t12(tm)}</div><div class="sbody">
+      ${here.map(a=>apCard(a)).join("")}
+      ${!here.some(live)&&canWrite?`<button class="freeslot" data-apbook="${tm}"><span>+</span> ${past?"Add":"Free · tap to book"}</button>`:""}</div></div>`}).join("");
+  const other=day.filter(a=>!onGrid.has(a.time));
+  return `<div class="weekstrip">${days.map(d=>{const tt=new Date(d+"T12:00:00"),n=cnt(d);return `<button class="wday${d===apDate?" on":""}${d===todayISO?" today":""}" data-apday="${d}"><span>${DN[tt.getDay()]}</span><strong>${tt.getDate()}</strong><em>${n?n+" appt"+(n>1?"s":""):"&nbsp;"}</em></button>`}).join("")}</div>
+  <section class="dayhero"><div><div class="dhdate">${["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][t.getDay()]}${isToday?" · Today":""}</div>
+     <h2>${t.getDate()} ${MFULL[t.getMonth()]} ${t.getFullYear()}</h2>
+     <div class="dhnext">${next?`Next: <strong>${esc(next.name)}</strong> at ${t12(next.time)}`:isToday?"No more appointments today":isPast?"Past day":"Hours "+t12(settings.apStart||"09:30")+" – "+t12(settings.apEnd||"15:00")}</div></div>
+     <div class="dhstats"><div><strong>${booked.length+other.filter(live).length}</strong><span>booked</span></div><div><strong>${free}</strong><span>free</span></div><div><strong>${done}</strong><span>done</span></div></div></section>
+  <div class="slotbar"><label class="tog"><input type="checkbox" id="apFreeTog" ${apShowFree?"checked":""}> Show free slots</label>${canWrite?`<button class="btn" data-apbook="">+ Book appointment</button>`:""}</div>
+  <section class="panel timeline">${rows||`<div class="empty">No appointments on this day.</div>`}
+   ${other.length?`<div class="othertimes"><h3 class="billh">Other times</h3>${other.map(a=>`<div class="slot"><div class="stime">${t12(a.time)}</div><div class="sbody">${apCard(a)}</div></div>`).join("")}</div>`:""}</section>`;
 }
 function viewAppts(){
   ensureAppts();
   return `${listsHTML(cur)}<div class="apnav"><button class="iconbtn" id="apPrev" aria-label="Previous week">‹</button>
     <input type="date" id="apPick" value="${apDate}" aria-label="Choose a day"><button class="iconbtn" id="apNext" aria-label="Next week">›</button>
     <button class="btn plain" id="apToday">Today</button></div>
-    <div id="apLists">${apListsHTML()}</div>${apFormHTML()}`;
+    <div id="apLists">${apListsHTML()}</div><div id="apSheetWrap">${apSheetHTML()}</div>`;
 }
+function openSheet(o){apSheet=o;const w=$("#apSheetWrap");if(w){w.innerHTML=apSheetHTML();bindSheet();const n=$("#aName");if(n&&!o.id)setTimeout(()=>n.focus(),50)}}
+function closeSheet(){apSheet=null;const w=$("#apSheetWrap");if(w)w.innerHTML=""}
 function bindApptLists(){
   document.querySelectorAll("[data-apday]").forEach(b=>b.onclick=()=>{apDate=b.dataset.apday;apDelArmed=null;render()});
+  document.querySelectorAll("[data-apbook]").forEach(b=>b.onclick=()=>openSheet({date:apDate,time:b.dataset.apbook||slotTimes().find(t=>!appts.some(a=>a.date===apDate&&a.time===t&&(a.status||"booked")!=="cancelled"))||""}));
+  const tg=$("#apFreeTog");if(tg)tg.onchange=()=>{apShowFree=tg.checked;try{localStorage.setItem("apShowFree",apShowFree?"1":"0")}catch(e){}renderApptsSoft()};
   document.querySelectorAll("[data-apst]").forEach(b=>b.onclick=async()=>{try{await db.saveAppt(b.dataset.apid,{status:b.dataset.apst});toast("Updated")}catch(x){writeErr(x)}});
-  document.querySelectorAll("[data-apedit]").forEach(b=>b.onclick=()=>{apEdit=b.dataset.apedit;render();const f=$("#apForm");if(f)f.scrollIntoView({behavior:"smooth"})});
-  document.querySelectorAll("[data-apdel]").forEach(b=>b.onclick=async()=>{const id=b.dataset.apdel;if(apDelArmed!==id){apDelArmed=id;renderApptsSoft();return}
-    try{await db.delAppt(id);apDelArmed=null;if(apEdit===id)apEdit=null;toast("Appointment deleted")}catch(x){writeErr(x)}});
+  document.querySelectorAll("[data-apedit]").forEach(b=>b.onclick=()=>openSheet({id:b.dataset.apedit}));
+  document.querySelectorAll("[data-apdel]").forEach(b=>b.onclick=async()=>{const id=b.dataset.apdel;if(apDelArmed!==id){apDelArmed=id;b.textContent="Tap again to delete";return}
+    try{await db.delAppt(id);apDelArmed=null;toast("Appointment deleted")}catch(x){writeErr(x)}});
   document.querySelectorAll("[data-apdone]").forEach(b=>b.onclick=()=>{const a=appts.find(x=>x.id===b.dataset.apdone);if(!a)return;
     prefill={date:a.date,shift:(a.time||"")<"14:00"?"morning":"evening",patient:(a.name||"").toUpperCase(),procedure:(a.proc||"").toUpperCase(),charges:"",apptId:a.id};
     shift=prefill.shift;cur=a.date.slice(0,7);editing=null;location.hash="records";setTimeout(()=>{const c=$("#fChg");if(c){c.scrollIntoView({behavior:"smooth",block:"center"});c.focus()}},150)});
 }
+function bindSheet(){
+  const f=$("#apForm");if(!f)return;
+  $("#apClose").onclick=closeSheet;$("#apCancel").onclick=closeSheet;$("#apSheetBg").onclick=closeSheet;
+  const ts=$("#aTimeSel"),ti=$("#aTime");ts.onchange=()=>{if(ts.value==="other"){ti.hidden=false;ti.focus()}else{ti.hidden=true;ti.value=ts.value}};
+  if(ts.value!=="other")ti.value=ts.value;
+  f.onsubmit=async e=>{e.preventDefault();const err=$("#apErr");err.hidden=true;
+    const d={date:$("#aDate").value,time:ts.value==="other"?ti.value:ts.value,name:$("#aName").value.trim().toUpperCase(),phone:$("#aPhone").value.trim(),proc:$("#aProc").value.trim().toUpperCase(),note:$("#aNote").value.trim()};
+    if(!d.date||!d.time||!d.name){err.textContent="Fill in the date, time and patient's name.";err.hidden=false;return}
+    const clash=appts.find(a=>a.date===d.date&&a.time===d.time&&a.id!==apSheet.id&&(a.status||"booked")!=="cancelled");
+    if(clash&&!f.dataset.ok){err.textContent=`${clash.name} is already booked at ${t12(d.time)}. Tap the button again to book anyway.`;err.hidden=false;f.dataset.ok="1";return}
+    try{const id=apSheet.id;if(id){await db.saveAppt(id,d);toast("Appointment saved")}else{d.status="booked";d.at=Date.now();await db.saveAppt(null,d);toast(`Booked ${d.name} at ${t12(d.time)}`)}
+      apSheet=null;apDate=d.date;render()}catch(x){writeErr(x)}};
+}
 function bindAppts(){
   if(tab!=="appointments")return;
-  bindApptLists();
+  bindApptLists();bindSheet();
   $("#apPrev").onclick=()=>{apDate=isoAdd(apDate,-7);render()};
   $("#apNext").onclick=()=>{apDate=isoAdd(apDate,7);render()};
   $("#apToday").onclick=()=>{apDate=todayISO;render()};
   $("#apPick").onchange=e=>{if(e.target.value){apDate=e.target.value;render()}};
-  const ce=$("#apCancelEdit");if(ce)ce.onclick=()=>{apEdit=null;render()};
-  const f=$("#apForm");if(!f)return;
-  f.onsubmit=async e=>{e.preventDefault();const err=$("#apErr");err.hidden=true;
-    const d={date:$("#aDate").value,time:$("#aTime").value,name:$("#aName").value.trim().toUpperCase(),phone:$("#aPhone").value.trim(),proc:$("#aProc").value.trim().toUpperCase(),note:$("#aNote").value.trim()};
-    if(!d.date||!d.time||!d.name){err.textContent="Fill in the date, time and patient's name.";err.hidden=false;return}
-    try{if(apEdit){await db.saveAppt(apEdit,d);toast("Appointment saved")}else{d.status="booked";d.at=Date.now();await db.saveAppt(null,d);toast(`Booked ${d.name}, ${t12(d.time)}`)}
-      apEdit=null;apDate=d.date;render()}catch(x){writeErr(x)}};
 }
+try{apShowFree=localStorage.getItem("apShowFree")!=="0"}catch(e){}
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&apSheet)closeSheet()});
 // ---------- bill photos (kept in the app, never printed) ----------
 let bills=[],billsKey=null,billsUnsub=null,billsLoading=false,viewBill=null,delArmed=false;
 function ensureBills(){
@@ -1033,7 +1115,7 @@ function bind(){
     function keepDraft(){const d={clinic:$("#sClinic").value,doctorFull:$("#sFull").value,doctor:$("#sDoc").value,mHospital:+$("#sMH").value,eDoctor:+$("#sED").value,tax:+$("#sTax").value,signs:readSigns(),softCopy:$("#sCC").value.split("\n").map(s=>s.trim()).filter(Boolean)};settings=Object.assign({},settings,d);render()}
     ss.onclick=async()=>{
       const d={clinic:$("#sClinic").value.trim()||DEF.clinic,doctorFull:$("#sFull").value.trim()||DEF.doctorFull,doctor:$("#sDoc").value.trim().toUpperCase()||DEF.doctor,
-        mHospital:+$("#sMH").value,eDoctor:+$("#sED").value,tax:+$("#sTax").value,eShares:readShares().filter(s=>s.name),signs:readSigns().filter(x=>x.head||x.name),softCopy:$("#sCC").value.split("\n").map(s=>s.trim()).filter(Boolean)};
+        mHospital:+$("#sMH").value,eDoctor:+$("#sED").value,tax:+$("#sTax").value,eShares:readShares().filter(s=>s.name),apStart:$("#sApS").value||"09:30",apEnd:$("#sApE").value||"15:00",apGap:Math.max(5,Math.min(120,parseInt($("#sApG").value)||15)),signs:readSigns().filter(x=>x.head||x.name),softCopy:$("#sCC").value.split("\n").map(s=>s.trim()).filter(Boolean)};
       if(![d.mHospital,d.eDoctor,d.tax].every(n=>isFinite(n)&&n>=0&&n<=100)){$("#setMsg").textContent="Percentages must be between 0 and 100.";$("#setMsg").className="err";return}
       if(settings.sigImg)d.sigImg=settings.sigImg;
       try{await db.doc("config/settings").set(d);settings=Object.assign({},DEF,d);toast("Shares and names saved");render()}catch(x){writeErr(x)}
