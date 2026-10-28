@@ -396,7 +396,7 @@ const DEF = {
     {head:"Prepared by:",name:"Dr. Muhammad Faizan Malik",title:"Consultant Dental Surgeon at Executive Clinic."},
     {head:"Checked by:",name:"Dr. Zainab Kabir",title:"Administrator SBDC"},
     {head:"Checked by:",name:"Dr. Saira Afridi",title:"Deputy Director QEC\nStore In charge"}],
-  apStart:"09:30",apEnd:"15:00",apGap:15,
+  apStart:"09:30",apEnd:"15:00",apGap:30,
   softCopy:["Mr. Ghulam Noorani, Director Finance, Gandhara University.","Dr. Zainab Noorani, Administrator SBDC.","Mujahid, Accounts Officer, Gandhara University"]
 };
 const MN=["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
@@ -819,7 +819,7 @@ function viewShares(){
     <div class="field"><label>Appointment hours</label></div>
     <div class="exp"><div class="field"><label for="sApS">Day starts</label><input id="sApS" type="time" step="900" value="${esc(S.apStart||"09:30")}" ${dis}></div>
       <div class="field"><label for="sApE">Day ends</label><input id="sApE" type="time" step="900" value="${esc(S.apEnd||"15:00")}" ${dis}></div>
-      <div class="field"><label for="sApG">Gap between slots (minutes)</label><input id="sApG" inputmode="numeric" value="${esc(S.apGap||15)}" ${dis}></div></div>
+      <div class="field"><label for="sApG">Gap between slots (minutes)</label><input id="sApG" inputmode="numeric" value="${esc(S.apGap||30)}" ${dis}></div></div>
     <div class="field"><label>Signature boxes on the summary</label></div>
     <div class="btnrow" style="align-items:center">${S.sigImg?`<img class="sigprev" src="${S.sigImg}" alt="Your signature">`:'<span class="hint">No signature picture yet.</span>'}
       <label class="btn plain" for="sigFile" style="cursor:pointer">${S.sigImg?"Change signature picture":"Add signature picture"}</label><input type="file" id="sigFile" accept="image/*" hidden ${dis}>
@@ -872,7 +872,7 @@ function ensureAppts(){
 function renderApptsSoft(){const el=document.getElementById("apLists");if(el){el.innerHTML=apListsHTML();bindApptLists();if(apSheet&&apSheet.view){const w=$("#apSheetWrap");w.innerHTML=apSheetHTML();bindSheet()}}else render()}
 const toMin=t=>{const [h,m]=String(t||"0:0").split(":").map(Number);return h*60+(m||0)};
 const fromMin=n=>String(Math.floor(n/60)).padStart(2,"0")+":"+String(n%60).padStart(2,"0");
-function slotTimes(){const a=toMin(settings.apStart||"09:30"),b=toMin(settings.apEnd||"15:00"),g=+settings.apGap||15,out=[];for(let t=a;t+g<=b;t+=g)out.push(fromMin(t));return out}
+function slotTimes(){const a=toMin(settings.apStart||"09:30"),b=toMin(settings.apEnd||"15:00"),g=+settings.apGap||30,out=[];for(let t=a;t+g<=b;t+=g)out.push(fromMin(t));return out}
 let apSheet=null,apShowFree=true;
 function apSheetHTML(){
   if(!apSheet)return "";
@@ -928,7 +928,7 @@ function apListsHTML(){
   const now=new Date(),nowMin=now.getHours()*60+now.getMinutes(),isToday=apDate===todayISO,isPast=apDate<todayISO;
   const nBooked=day.filter(live).length,nFree=slots.filter(t=>!day.some(a=>a.time===t&&live(a))).length;
   const t=new Date(apDate+"T12:00:00");
-  const row=(tm,a)=>{const past=isPast||(isToday&&toMin(tm)+(+settings.apGap||15)<=nowMin);
+  const row=(tm,a)=>{const past=isPast||(isToday&&toMin(tm)+(+settings.apGap||30)<=nowMin);
     if(!a)return `<button class="srow free${past?" past":""}" data-apbook="${tm}" ${canWrite?"":"disabled"}><span class="stm">${t12(tm)}</span><span class="snm">Free</span><span class="sic">+</span></button>`;
     const st=a.status||"booked";
     return `<button class="srow bk st-${st}" data-apopen="${a.id}"><span class="stm">${t12(a.time)}</span><span class="snm">${esc(a.name)}${a.proc?` <small>${esc(a.proc)}</small>`:""}</span><span class="sst">${{booked:"",done:"Done",noshow:"Didn't come",cancelled:"Cancelled"}[st]}</span></button>`};
@@ -1123,7 +1123,7 @@ function bind(){
     function keepDraft(){const d={clinic:$("#sClinic").value,doctorFull:$("#sFull").value,doctor:$("#sDoc").value,mHospital:+$("#sMH").value,eDoctor:+$("#sED").value,tax:+$("#sTax").value,signs:readSigns(),softCopy:$("#sCC").value.split("\n").map(s=>s.trim()).filter(Boolean)};settings=Object.assign({},settings,d);render()}
     ss.onclick=async()=>{
       const d={clinic:$("#sClinic").value.trim()||DEF.clinic,doctorFull:$("#sFull").value.trim()||DEF.doctorFull,doctor:$("#sDoc").value.trim().toUpperCase()||DEF.doctor,
-        mHospital:+$("#sMH").value,eDoctor:+$("#sED").value,tax:+$("#sTax").value,eShares:readShares().filter(s=>s.name),apStart:$("#sApS").value||"09:30",apEnd:$("#sApE").value||"15:00",apGap:Math.max(5,Math.min(120,parseInt($("#sApG").value)||15)),signs:readSigns().filter(x=>x.head||x.name),softCopy:$("#sCC").value.split("\n").map(s=>s.trim()).filter(Boolean)};
+        mHospital:+$("#sMH").value,eDoctor:+$("#sED").value,tax:+$("#sTax").value,eShares:readShares().filter(s=>s.name),apStart:$("#sApS").value||"09:30",apEnd:$("#sApE").value||"15:00",apGap:Math.max(5,Math.min(120,parseInt($("#sApG").value)||30)),signs:readSigns().filter(x=>x.head||x.name),softCopy:$("#sCC").value.split("\n").map(s=>s.trim()).filter(Boolean)};
       if(![d.mHospital,d.eDoctor,d.tax].every(n=>isFinite(n)&&n>=0&&n<=100)){$("#setMsg").textContent="Percentages must be between 0 and 100.";$("#setMsg").className="err";return}
       if(settings.sigImg)d.sigImg=settings.sigImg;
       try{await db.doc("config/settings").set(d);settings=Object.assign({},DEF,d);toast("Shares and names saved");render()}catch(x){writeErr(x)}
