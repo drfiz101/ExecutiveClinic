@@ -155,6 +155,15 @@ img{max-width:100%}
 .wday:active{transform:scale(.96)}
 .wday i{font-style:normal;font-size:.66rem;font-weight:800;color:var(--accent);min-height:1em}
 .wday.on i{color:var(--accent-ink)}
+.wday.offd-off,.wday.offd-leave{background:var(--soft);border-style:dashed}
+.wday.offd-off i,.wday.offd-leave i{color:var(--danger)}
+.wday.on.offd-off,.wday.on.offd-leave{background:var(--muted);border-color:var(--muted);border-style:solid}
+.wday.on.offd-off i,.wday.on.offd-leave i{color:#fff}
+.offbox{display:flex;flex-direction:column;gap:6px;align-items:flex-start;padding:16px;border-radius:12px;border:1.5px dashed var(--line);background:var(--surface)}
+.offbox strong{font-size:1rem}
+.offbox span{color:var(--muted);font-size:.9rem}
+.offbox.leave{border-color:var(--morning);background:var(--morning-soft)}
+.offdays{display:flex;flex-wrap:wrap;gap:10px 16px}
 .dayline{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .dayline div{display:flex;flex-direction:column}
 .dayline strong{font-size:1.1rem}
@@ -396,7 +405,7 @@ const DEF = {
     {head:"Prepared by:",name:"Dr. Muhammad Faizan Malik",title:"Consultant Dental Surgeon at Executive Clinic."},
     {head:"Checked by:",name:"Dr. Zainab Kabir",title:"Administrator SBDC"},
     {head:"Checked by:",name:"Dr. Saira Afridi",title:"Deputy Director QEC\nStore In charge"}],
-  apStart:"09:30",apEnd:"15:00",apGap:30,
+  apStart:"09:30",apEnd:"15:00",apGap:30,offDays:[0],
   softCopy:["Mr. Ghulam Noorani, Director Finance, Gandhara University.","Dr. Zainab Noorani, Administrator SBDC.","Mujahid, Accounts Officer, Gandhara University"]
 };
 const MN=["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
@@ -820,6 +829,7 @@ function viewShares(){
     <div class="exp"><div class="field"><label for="sApS">Day starts</label><input id="sApS" type="time" step="900" value="${esc(S.apStart||"09:30")}" ${dis}></div>
       <div class="field"><label for="sApE">Day ends</label><input id="sApE" type="time" step="900" value="${esc(S.apEnd||"15:00")}" ${dis}></div>
       <div class="field"><label for="sApG">Gap between slots (minutes)</label><input id="sApG" inputmode="numeric" value="${esc(S.apGap||30)}" ${dis}></div></div>
+    <div class="field"><label>Weekly day off</label><div class="offdays">${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((d,i)=>{const n=(i+1)%7;return `<label class="tog"><input type="checkbox" class="offd" value="${n}" ${(S.offDays||[0]).includes(n)?"checked":""} ${dis}> ${d}</label>`}).join("")}</div></div>
     <div class="field"><label>Signature boxes on the summary</label></div>
     <div class="btnrow" style="align-items:center">${S.sigImg?`<img class="sigprev" src="${S.sigImg}" alt="Your signature">`:'<span class="hint">No signature picture yet.</span>'}
       <label class="btn plain" for="sigFile" style="cursor:pointer">${S.sigImg?"Change signature picture":"Add signature picture"}</label><input type="file" id="sigFile" accept="image/*" hidden ${dis}>
@@ -873,9 +883,18 @@ function renderApptsSoft(){const el=document.getElementById("apLists");if(el){el
 const toMin=t=>{const [h,m]=String(t||"0:0").split(":").map(Number);return h*60+(m||0)};
 const fromMin=n=>String(Math.floor(n/60)).padStart(2,"0")+":"+String(n%60).padStart(2,"0");
 function slotTimes(){const a=toMin(settings.apStart||"09:30"),b=toMin(settings.apEnd||"15:00"),g=+settings.apGap||30,out=[];for(let t=a;t+g<=b;t+=g)out.push(fromMin(t));return out}
-let apSheet=null,apShowFree=true;
+let apSheet=null,apShowFree=true,leaves={};
+const isWeeklyOff=iso=>(settings.offDays||[0]).includes(new Date(iso+"T12:00:00").getDay());
+const dayOffKind=iso=>leaves[iso]!==undefined?"leave":isWeeklyOff(iso)?"off":"";
+async function setLeave(iso,reason){const d=Object.assign({},leaves);if(reason===null)delete d[iso];else d[iso]=reason;leaves=d;await db.doc("config/leaves").set({dates:d})}
 function apSheetHTML(){
   if(!apSheet)return "";
+  if(apSheet.leave){const d=apSheet.leave,n=appts.filter(a=>a.date===d&&(a.status||"booked")==="booked").length;
+    return `<div class="sheetbg" id="apSheetBg"></div><div class="sheet" role="dialog" aria-label="Mark leave">
+     <div class="sheethead"><div><div class="hint">${prettyDate(d)}</div><h2>Mark this day as leave</h2></div><button class="iconbtn" id="apClose" aria-label="Close">✕</button></div>
+     <div class="field"><label for="lvWhy">Reason (optional)</label><input id="lvWhy" placeholder="e.g. Conference, personal" value=""></div>
+     ${n?`<p class="err" style="margin:0">${n} patient${n>1?"s are":" is"} booked on this day. They stay on the list so you can WhatsApp or move them.</p>`:""}
+     <div class="btnrow" style="justify-content:flex-end"><button class="btn plain" id="apCancel">Cancel</button><button class="btn" id="lvSave">Mark as leave</button></div></div>`}
   if(apSheet.view){const a=appts.find(x=>x.id===apSheet.view);if(!a)return "";
     return `<div class="sheetbg" id="apSheetBg"></div><div class="sheet" role="dialog" aria-label="Appointment">
      <div class="sheethead"><div><div class="hint">${prettyDate(a.date)} · ${t12(a.time)}</div><h2>${esc(a.name)}</h2></div><button class="iconbtn" id="apClose" aria-label="Close">✕</button></div>
@@ -927,16 +946,20 @@ function apListsHTML(){
   const slots=slotTimes(),grid=new Set(slots);
   const now=new Date(),nowMin=now.getHours()*60+now.getMinutes(),isToday=apDate===todayISO,isPast=apDate<todayISO;
   const nBooked=day.filter(live).length,nFree=slots.filter(t=>!day.some(a=>a.time===t&&live(a))).length;
-  const t=new Date(apDate+"T12:00:00");
+  const t=new Date(apDate+"T12:00:00"),kind=dayOffKind(apDate);
   const row=(tm,a)=>{const past=isPast||(isToday&&toMin(tm)+(+settings.apGap||30)<=nowMin);
     if(!a)return `<button class="srow free${past?" past":""}" data-apbook="${tm}" ${canWrite?"":"disabled"}><span class="stm">${t12(tm)}</span><span class="snm">Free</span><span class="sic">+</span></button>`;
     const st=a.status||"booked";
     return `<button class="srow bk st-${st}" data-apopen="${a.id}"><span class="stm">${t12(a.time)}</span><span class="snm">${esc(a.name)}${a.proc?` <small>${esc(a.proc)}</small>`:""}</span><span class="sst">${{booked:"",done:"Done",noshow:"Didn't come",cancelled:"Cancelled"}[st]}</span></button>`};
-  const rows=slots.map(tm=>{const here=day.filter(a=>a.time===tm);return here.length?here.map(a=>row(tm,a)).join("")+(here.some(live)?"":row(tm,null)):row(tm,null)}).join("")
+  const rows=kind?day.map(a=>row(a.time,a)).join(""):slots.map(tm=>{const here=day.filter(a=>a.time===tm);return here.length?here.map(a=>row(tm,a)).join("")+(here.some(live)?"":row(tm,null)):row(tm,null)}).join("")
     +day.filter(a=>!grid.has(a.time)).map(a=>row(a.time,a)).join("");
-  return `<div class="weekstrip">${days.map(d=>{const tt=new Date(d+"T12:00:00"),n=cnt(d);return `<button class="wday${d===apDate?" on":""}${d===todayISO?" today":""}" data-apday="${d}"><span>${DN[tt.getDay()]}</span><strong>${tt.getDate()}</strong><i>${n||""}</i></button>`}).join("")}</div>
-  <div class="dayline"><div><strong>${DN[t.getDay()]} ${t.getDate()} ${MFULL[t.getMonth()]}</strong><span>${nBooked} booked · ${nFree} free</span></div>${canWrite?`<button class="btn sm" data-apbook="">+ Book</button>`:""}</div>
-  <div class="slist">${rows}</div>`;
+  return `<div class="weekstrip">${days.map(d=>{const tt=new Date(d+"T12:00:00"),n=cnt(d);return `<button class="wday${d===apDate?" on":""}${d===todayISO?" today":""}${dayOffKind(d)?" offd-"+dayOffKind(d):""}" data-apday="${d}"><span>${DN[tt.getDay()]}</span><strong>${tt.getDate()}</strong><i>${dayOffKind(d)==="leave"?"Leave":dayOffKind(d)==="off"?"Off":(n||"")}</i></button>`}).join("")}</div>
+  <div class="dayline"><div><strong>${DN[t.getDay()]} ${t.getDate()} ${MFULL[t.getMonth()]}</strong><span>${kind==="leave"?"On leave":kind==="off"?"Weekly day off":`${nBooked} booked · ${nFree} free`}</span></div>
+   <div class="btnrow">${canWrite&&kind!=="off"?(kind==="leave"?`<button class="btn sm plain" id="lvRemove">Remove leave</button>`:`<button class="btn sm plain" id="lvMark">Mark leave</button>`):""}${canWrite&&!kind?`<button class="btn sm" data-apbook="">+ Book</button>`:""}</div></div>
+  ${kind?`<div class="offbox ${kind}"><strong>${kind==="leave"?"On leave":"Day off"}</strong><span>${kind==="leave"?(esc(leaves[apDate])||"No appointments are offered on this day."):"Sunday is your weekly day off. You can change this in Settings."}</span>
+    ${day.some(a=>(a.status||"booked")==="booked")?`<span class="err">Patients below are still booked on this day — WhatsApp them or move them.</span>`:""}
+    ${canWrite?`<button class="btn sm plain" data-apbook="">Book anyway</button>`:""}</div>`:""}
+  ${rows?`<div class="slist">${rows}</div>`:""}`;
 }
 function viewAppts(){
   ensureAppts();
@@ -950,6 +973,8 @@ function closeSheet(){apSheet=null;const w=$("#apSheetWrap");if(w)w.innerHTML=""
 function bindApptLists(){
   document.querySelectorAll("[data-apday]").forEach(b=>b.onclick=()=>{apDate=b.dataset.apday;apDelArmed=null;render()});
   document.querySelectorAll("[data-apopen]").forEach(b=>b.onclick=()=>{apDelArmed=null;openSheet({view:b.dataset.apopen})});
+  const lm=$("#lvMark");if(lm)lm.onclick=()=>openSheet({leave:apDate});
+  const lr=$("#lvRemove");if(lr)lr.onclick=async()=>{const d=apDate,old=leaves[d];try{await setLeave(d,null);renderApptsSoft();toast("Leave removed",async()=>{await setLeave(d,old||"");renderApptsSoft()})}catch(x){writeErr(x)}};
   document.querySelectorAll("[data-apbook]").forEach(b=>b.onclick=()=>openSheet({date:apDate,time:b.dataset.apbook||slotTimes().find(t=>!appts.some(a=>a.date===apDate&&a.time===t&&(a.status||"booked")!=="cancelled"))||""}));
   const tg=$("#apFreeTog");if(tg)tg.onchange=()=>{apShowFree=tg.checked;try{localStorage.setItem("apShowFree",apShowFree?"1":"0")}catch(e){}renderApptsSoft()};
   document.querySelectorAll("[data-apst]").forEach(b=>b.onclick=async()=>{try{await db.saveAppt(b.dataset.apid,{status:b.dataset.apst});toast("Updated")}catch(x){writeErr(x)}});
@@ -963,6 +988,9 @@ function goDone(id){{const a=appts.find(x=>x.id===id);if(!a)return;
     shift=prefill.shift;cur=a.date.slice(0,7);editing=null;location.hash="records";setTimeout(()=>{const c=$("#fChg");if(c){c.scrollIntoView({behavior:"smooth",block:"center"});c.focus()}},150)}
 }
 function bindSheet(){
+  if(apSheet&&apSheet.leave){$("#apClose").onclick=closeSheet;$("#apCancel").onclick=closeSheet;$("#apSheetBg").onclick=closeSheet;
+    $("#lvSave").onclick=async()=>{const d=apSheet.leave;try{await setLeave(d,$("#lvWhy").value.trim());closeSheet();toast("Marked as leave");renderApptsSoft()}catch(x){writeErr(x)}};
+    return}
   if(apSheet&&apSheet.view){$("#apClose").onclick=closeSheet;$("#apSheetBg").onclick=closeSheet;
     const w=$("#apSheetWrap");
     w.querySelectorAll("[data-apst]").forEach(b=>b.onclick=async()=>{try{await db.saveAppt(b.dataset.apid,{status:b.dataset.apst});closeSheet();toast("Updated")}catch(x){writeErr(x)}});
@@ -978,6 +1006,7 @@ function bindSheet(){
   f.onsubmit=async e=>{e.preventDefault();const err=$("#apErr");err.hidden=true;
     const d={date:$("#aDate").value,time:ts.value==="other"?ti.value:ts.value,name:$("#aName").value.trim().toUpperCase(),phone:$("#aPhone").value.trim(),proc:$("#aProc").value.trim().toUpperCase(),note:$("#aNote").value.trim()};
     if(!d.date||!d.time||!d.name){err.textContent="Fill in the date, time and patient's name.";err.hidden=false;return}
+    const ok=dayOffKind(d.date);if(ok&&!f.dataset.offok&&!apSheet.id){err.textContent=`${prettyDate(d.date)} is ${ok==="leave"?"a leave day":"your day off"}. Tap the button again to book anyway.`;err.hidden=false;f.dataset.offok="1";return}
     const clash=appts.find(a=>a.date===d.date&&a.time===d.time&&a.id!==apSheet.id&&(a.status||"booked")!=="cancelled");
     if(clash&&!f.dataset.ok){err.textContent=`${clash.name} is already booked at ${t12(d.time)}. Tap the button again to book anyway.`;err.hidden=false;f.dataset.ok="1";return}
     try{const id=apSheet.id;if(id){await db.saveAppt(id,d);toast("Appointment saved")}else{d.status="booked";d.at=Date.now();await db.saveAppt(null,d);toast(`Booked ${d.name} at ${t12(d.time)}`)}
@@ -1123,7 +1152,7 @@ function bind(){
     function keepDraft(){const d={clinic:$("#sClinic").value,doctorFull:$("#sFull").value,doctor:$("#sDoc").value,mHospital:+$("#sMH").value,eDoctor:+$("#sED").value,tax:+$("#sTax").value,signs:readSigns(),softCopy:$("#sCC").value.split("\n").map(s=>s.trim()).filter(Boolean)};settings=Object.assign({},settings,d);render()}
     ss.onclick=async()=>{
       const d={clinic:$("#sClinic").value.trim()||DEF.clinic,doctorFull:$("#sFull").value.trim()||DEF.doctorFull,doctor:$("#sDoc").value.trim().toUpperCase()||DEF.doctor,
-        mHospital:+$("#sMH").value,eDoctor:+$("#sED").value,tax:+$("#sTax").value,eShares:readShares().filter(s=>s.name),apStart:$("#sApS").value||"09:30",apEnd:$("#sApE").value||"15:00",apGap:Math.max(5,Math.min(120,parseInt($("#sApG").value)||30)),signs:readSigns().filter(x=>x.head||x.name),softCopy:$("#sCC").value.split("\n").map(s=>s.trim()).filter(Boolean)};
+        mHospital:+$("#sMH").value,eDoctor:+$("#sED").value,tax:+$("#sTax").value,eShares:readShares().filter(s=>s.name),offDays:[...document.querySelectorAll(".offd:checked")].map(i=>+i.value),apStart:$("#sApS").value||"09:30",apEnd:$("#sApE").value||"15:00",apGap:Math.max(5,Math.min(120,parseInt($("#sApG").value)||30)),signs:readSigns().filter(x=>x.head||x.name),softCopy:$("#sCC").value.split("\n").map(s=>s.trim()).filter(Boolean)};
       if(![d.mHospital,d.eDoctor,d.tax].every(n=>isFinite(n)&&n>=0&&n<=100)){$("#setMsg").textContent="Percentages must be between 0 and 100.";$("#setMsg").className="err";return}
       if(settings.sigImg)d.sigImg=settings.sigImg;
       try{await db.doc("config/settings").set(d);settings=Object.assign({},DEF,d);toast("Shares and names saved");render()}catch(x){writeErr(x)}
@@ -1227,6 +1256,7 @@ render.tried=true;
     if(!u){uidNow=null;db=null;showLogin(true);syncChip();render();return}
     uidNow=u.uid;showLogin(false);$("#who").textContent=u.email||"";
     db=makeDB(fs,u.uid);downloads=localDownloads;canWrite=true;
+    unsubs.push(db.doc("config/leaves").onSnapshot(s=>{leaves=(s.exists&&s.data().dates)||{};if(tab==="appointments")renderApptsSoft()},e=>{}));
     unsubs.push(db.doc("config/settings").onSnapshot(s=>{settings=Object.assign({},DEF,s.exists?s.data():{});loadSig();if(tab!=="shares")render()},e=>{}));
     unsubs.push(db.collection("months").onSnapshot(snap=>{
       const m={}; snap.docs.forEach(d=>{m[d.id]=d.data()}); months=m; ready=true;
