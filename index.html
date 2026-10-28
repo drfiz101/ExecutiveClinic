@@ -203,12 +203,21 @@ img{max-width:100%}
 .apmenu{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .othertimes{padding-top:10px;display:flex;flex-direction:column;gap:4px}
 .sheetbg{position:fixed;inset:0;background:rgba(8,20,22,.5);z-index:25}
-.sheet{position:fixed;z-index:26;left:50%;transform:translateX(-50%);bottom:0;width:min(560px,100%);max-height:92vh;overflow:auto;background:var(--surface);border-radius:18px 18px 0 0;padding:18px max(18px,env(safe-area-inset-left,0px)) calc(18px + env(safe-area-inset-bottom,0px));box-shadow:0 -10px 40px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:12px}
-@media (min-width:700px){.sheet{bottom:auto;top:50%;transform:translate(-50%,-50%);border-radius:18px}}
+.apsheet{position:fixed;z-index:26;left:50%;transform:translateX(-50%);bottom:0;width:min(560px,100%);max-height:92vh;overflow:auto;background:var(--surface);border-radius:18px 18px 0 0;padding:18px max(18px,env(safe-area-inset-left,0px)) calc(18px + env(safe-area-inset-bottom,0px));box-shadow:0 -10px 40px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:12px}
+@media (min-width:700px){.apsheet{bottom:auto;top:50%;transform:translate(-50%,-50%);border-radius:18px}}
 .sheethead{display:flex;justify-content:space-between;align-items:center}
 .apform2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .apform2 .wide{grid-column:1/-1}
 @media (max-width:480px){.slot{grid-template-columns:62px 1fr;gap:8px}.dayhero{padding:16px}.dhstats div{min-width:54px;padding:6px 8px}.apcard{grid-template-columns:32px 1fr;gap:10px;padding:10px}.apava{width:32px;height:32px;font-size:.78rem}}
+@media (max-width:560px){
+  .paper{padding:14px 10px}
+  .paper .sheet{font-size:.76rem}
+  .paper .sheet th,.paper .sheet td{padding:4px 4px}
+  .paper .sheet th{font-size:.62rem;letter-spacing:.02em}
+  .paper .sheet td:nth-child(3),.paper .sheet td:nth-child(4){word-break:break-word}
+  .paper .sum td{padding:6px 6px;font-size:.84rem}
+  .paper .sbox{min-height:120px}
+}
 .splitline{display:flex;flex-wrap:wrap;gap:10px 24px;align-items:center}
 #printArea{display:none}
 @media print{
@@ -297,7 +306,7 @@ img{max-width:100%}
 html,body{min-height:100%}
 </style>
 
-<style>[hidden]{display:none!important}html{-webkit-text-size-adjust:100%;text-size-adjust:100%}html,body{max-width:100%;overflow-x:hidden}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}</style>
+<style>[hidden]{display:none!important}html{-webkit-text-size-adjust:100%;text-size-adjust:100%}body{max-width:100%;overflow-x:clip}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}</style>
 </head>
 <body>
 <div id="login" class="loginwrap" hidden>
@@ -890,13 +899,13 @@ async function setLeave(iso,reason){const d=Object.assign({},leaves);if(reason==
 function apSheetHTML(){
   if(!apSheet)return "";
   if(apSheet.leave){const d=apSheet.leave,n=appts.filter(a=>a.date===d&&(a.status||"booked")==="booked").length;
-    return `<div class="sheetbg" id="apSheetBg"></div><div class="sheet" role="dialog" aria-label="Mark leave">
+    return `<div class="sheetbg" id="apSheetBg"></div><div class="apsheet" role="dialog" aria-label="Mark leave">
      <div class="sheethead"><div><div class="hint">${prettyDate(d)}</div><h2>Mark this day as leave</h2></div><button class="iconbtn" id="apClose" aria-label="Close">✕</button></div>
      <div class="field"><label for="lvWhy">Reason (optional)</label><input id="lvWhy" placeholder="e.g. Conference, personal" value=""></div>
      ${n?`<p class="err" style="margin:0">${n} patient${n>1?"s are":" is"} booked on this day. They stay on the list so you can WhatsApp or move them.</p>`:""}
      <div class="btnrow" style="justify-content:flex-end"><button class="btn plain" id="apCancel">Cancel</button><button class="btn" id="lvSave">Mark as leave</button></div></div>`}
   if(apSheet.view){const a=appts.find(x=>x.id===apSheet.view);if(!a)return "";
-    return `<div class="sheetbg" id="apSheetBg"></div><div class="sheet" role="dialog" aria-label="Appointment">
+    return `<div class="sheetbg" id="apSheetBg"></div><div class="apsheet" role="dialog" aria-label="Appointment">
      <div class="sheethead"><div><div class="hint">${prettyDate(a.date)} · ${t12(a.time)}</div><h2>${esc(a.name)}</h2></div><button class="iconbtn" id="apClose" aria-label="Close">✕</button></div>
      ${a.proc||a.phone||a.note?`<div class="apmeta">${[a.proc,a.phone,a.note].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join("")}</div>`:""}
      <div class="apacts">${apCard(a).split('<div class="apacts">')[1].split("</div></div></div>")[0]}</div></div>`}
@@ -904,7 +913,7 @@ function apSheetHTML(){
   const r=x||{date:apSheet.date||apDate,time:apSheet.time||"",name:"",phone:"",proc:"",note:""};
   const slots=slotTimes(),onGrid=!r.time||slots.includes(r.time),dis=canWrite&&ready?"":"disabled";
   const taken=new Set(appts.filter(a=>a.date===r.date&&a.id!==(x&&x.id)&&(a.status||"booked")!=="cancelled").map(a=>a.time));
-  return `<div class="sheetbg" id="apSheetBg"></div><div class="sheet" role="dialog" aria-label="${x?"Edit appointment":"Book appointment"}">
+  return `<div class="sheetbg" id="apSheetBg"></div><div class="apsheet" role="dialog" aria-label="${x?"Edit appointment":"Book appointment"}">
    <div class="sheethead"><h2>${x?"Edit appointment":"Book appointment"}</h2><button class="iconbtn" id="apClose" aria-label="Close">✕</button></div>
    <form id="apForm" autocomplete="off" class="apform2">
     <div class="field"><label for="aDate">Date</label><input id="aDate" type="date" required value="${esc(r.date)}" ${dis}></div>
